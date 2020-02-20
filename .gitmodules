@@ -1,0 +1,3 @@
+[submodule "rebpf-sys/libbpf"]
+	path = rebpf-sys/libbpf
+	url = https://github.com/libbpf/libbpf
