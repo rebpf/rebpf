@@ -1,0 +1,10 @@
+[package]
+name = "rebpf"
+version = "0.1.0"
+authors = ["Lorenzo Vannucci <lorenzo@vannucci.io>"]
+edition = "2018"
+
+[dependencies]
+libbpf-sys = "0.0.6-7"
+libc = "0.2.66"
+rebpf-macro = { path = "../rebpf-macro", version = "0.1.0" }
