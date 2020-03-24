@@ -1,0 +1,18 @@
+[package]
+name = "xdp_pass"
+version = "0.1.0"
+authors = ["Lorenzo Vannucci <lorenzo@vannucci.io>"]
+edition = "2018"
+license = "GPL-3.0"
+
+[dependencies]
+rebpf = { path = "../../rebpf", version = "0.1.0" }
+clap = "2.23.0"
+
+[lib]
+name = "kern"
+path = "src/kern.rs"
+
+[[bin]]
+name = "user"
+path = "src/user.rs"
