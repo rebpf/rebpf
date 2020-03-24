@@ -1,0 +1,1 @@
+This folder will container build.sh script output.
