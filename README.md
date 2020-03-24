@@ -6,7 +6,7 @@ rebpf is a Rust library built on top of libbpf (no bcc dependency) that allows t
 - High level ebpf api built on top of libbpf wrapper (Future work).
 
 ## Usage
-To create your first ebpf program with rebpf library you can copy and rename an [empty project template](./examples/empty_project) and edit it changing <your_project_name>/src/kern.rs and <your_project_name>/src/user.rs files.
+To create your first ebpf program with rebpf library you can copy and rename an [empty project template](https://github.com/uccidibuti/rebpf/tree/master/examples/empty_project) and edit it changing <your_project_name>/src/kern.rs and <your_project_name>/src/user.rs files.
 
 ### write your ebpf program
 Copy this content in <your_project_name>/src/kern.rs:
@@ -22,7 +22,7 @@ pub static _license: [u8; 4] = LICENSE;
 pub static _version: u32 = VERSION;
 
 #[sec("xdp_drop")]
-fn _xdp_pass(ctx: *const _xdp_md) -> XdpAction {
+fn _xdp_drop(ctx: *const _xdp_md) -> XdpAction {
     XdpAction::DROP
 }
 ```
@@ -85,8 +85,16 @@ cd <your_project_name>
 ### load and run ebpf program
 ```
 cd <your_project_name>/ebpf_output
-sudo user 
+sudo user
 ```
+Expected output:
+```
+Success Loading
+ XDP prog name: _xdp_pass, id 33 on device: 2
+```
+
+## Documentations
+[link](https://docs.rs/rebpf/0.1.0/rebpf/).
 
 ## Requirements
 - Linux 4.19+.
@@ -96,3 +104,6 @@ sudo user
 
 ## License
 Licensed under GNU Lesser General Public License (LGPL), version 3 https://www.gnu.org/licenses/lgpl-3.0.html
+
+## Examples
+[link](https://github.com/uccidibuti/rebpf/tree/master/examples).
