@@ -90,7 +90,7 @@ sudo user
 Expected output:
 ```
 Success Loading
- XDP prog name: _xdp_pass, id 33 on device: 2
+ XDP prog name: _xdp_drop, id 33 on device: 2
 ```
 
 ## Documentations
