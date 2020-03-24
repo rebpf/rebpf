@@ -3,6 +3,13 @@ name = "rebpf-macro"
 version = "0.1.0"
 authors = ["Lorenzo Vannucci <lorenzo@vannucci.io>"]
 edition = "2018"
+license = "LGPL-3.0"
+documentation = "https://docs.rs/rebpf-macro/"
+repository = "https://github.com/uccidibuti/rebpf"
+description = """
+Utility macros to write ebpf programs.
+"""
+keywords = ["bpf", "ebpf", "rebpf"]
 
 [lib]
 proc-macro = true

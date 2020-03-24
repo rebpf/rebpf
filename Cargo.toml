@@ -1,2 +1,3 @@
 [workspace]
-members = ["rebpf", "rebpf-macro"]
+members = ["rebpf", "rebpf-macro", "rebpf-sys"]
+exclude = ["examples"]

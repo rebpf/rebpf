@@ -3,8 +3,15 @@ name = "rebpf"
 version = "0.1.0"
 authors = ["Lorenzo Vannucci <lorenzo@vannucci.io>"]
 edition = "2018"
+license = "LGPL-3.0"
+documentation = "https://docs.rs/rebpf/"
+repository = "https://github.com/uccidibuti/rebpf"
+description = """
+A ebpf library built on top of libbpf (no bcc dependency).
+"""
+keywords = ["bpf", "ebpf", "rebpf", "xdp"]
 
 [dependencies]
-libbpf-sys = "0.0.6-7"
 libc = "0.2.66"
+rebpf-sys = { path = "../rebpf-sys", version = "0.1.0" }
 rebpf-macro = { path = "../rebpf-macro", version = "0.1.0" }

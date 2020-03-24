@@ -1,0 +1,21 @@
+[package]
+name = "rebpf-sys"
+version = "0.1.0"
+authors = ["Lorenzo Vannucci <lorenzo@vannucci.io>"]
+edition = "2018"
+license = "LGPL-3.0"
+documentation = "https://docs.rs/rebpf-sys/"
+repository = "https://github.com/uccidibuti/rebpf"
+description = """
+A raw binding for libbpf.
+"""
+keywords = ["bpf", "ebpf", "xdp", "rebpf", "ffi", "binding"]
+
+[build-dependencies]
+cc = "^1.0"
+bindgen = "0.53.1"
+
+[lib]
+crate-type = ["lib", "staticlib"]
+
+[dependencies]

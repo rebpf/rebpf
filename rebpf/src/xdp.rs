@@ -1,10 +1,11 @@
-use libbpf_sys as libbpf;
-use std::ffi::{CString, CStr}; 
-use libc;
-use std::iter::FromIterator;
-use std::path::Path;
+// This code is released under the
+// GNU Lesser General Public License (LGPL), version 3
+// https://www.gnu.org/licenses/lgpl-3.0.html
+// (c) Lorenzo Vannucci
 
-use crate::{error::Error, BpfFd};
+use rebpf_sys::libbpf_sys as libbpf;
+
+use crate::{interface::Interface, error::Error, BpfProgFd};
 
 #[repr(u32)]
 #[allow(non_camel_case_types)]
@@ -17,34 +18,28 @@ pub enum XdpFlags {
     MASK = libbpf::XDP_FLAGS_MASK,
 }
 
+#[derive(Debug)]
 #[repr(u32)]
 #[allow(non_camel_case_types)]
 pub enum XdpAction {
-    ABORTED = libbpf::XDP_ABORTED,
-    DROP = libbpf::XDP_DROP,
-    PASS = libbpf::XDP_PASS,
-    TX = libbpf::XDP_TX,
-    REDIRECT = libbpf::XDP_REDIRECT,
+    ABORTED = libbpf::xdp_action_XDP_ABORTED,
+    DROP = libbpf::xdp_action_XDP_DROP,
+    PASS = libbpf::xdp_action_XDP_PASS,
+    TX = libbpf::xdp_action_XDP_TX,
+    REDIRECT = libbpf::xdp_action_XDP_REDIRECT,
 }
 
-
-pub struct Interface {
-    ifindex: u32
-}
-
-pub fn get_interface(dev: &str) -> Result<Interface, Error> {
-    let ifindex = if_nametoindex(dev)?;
-    Ok(Interface {
-        ifindex
-    })
-}
-
-pub fn bpf_set_link_xdp_fd(dev: &Interface, fd: &BpfFd, flags: &[XdpFlags]) -> Result<(), Error> {
-    let flags = flags.iter().fold(0, |res, f| {
+pub fn bpf_set_link_xdp_fd(interface: &Interface, bpf_fd: Option<&BpfProgFd>, xdp_flags: &[XdpFlags]) -> Result<(), Error> {
+    let xdp_flags = xdp_flags.iter().fold(0, |res, f| {
         return res | unsafe { *((f as *const XdpFlags) as *const u32) };
     });
     let err = unsafe {
-        libbpf::bpf_set_link_xdp_fd(dev.ifindex as i32, fd.prog_fd, flags)
+        if bpf_fd.is_some() {
+            let bpf_fd = bpf_fd.unwrap();
+            libbpf::bpf_set_link_xdp_fd(interface.ifindex as i32, bpf_fd.fd, xdp_flags)
+        } else {
+            libbpf::bpf_set_link_xdp_fd(interface.ifindex as i32, -1, xdp_flags)
+        }
     };
     if err < 0 {
         return Err(Error::BpfSetLinkXdpFd(err));
@@ -53,12 +48,3 @@ pub fn bpf_set_link_xdp_fd(dev: &Interface, fd: &BpfFd, flags: &[XdpFlags]) -> R
     Ok(())
 }
 
-fn if_nametoindex(dev: &str) -> Result<u32, Error> {
-    let dev_cstring: CString = crate::str_to_cstring(dev)?;
-    let ifindex = unsafe { libc::if_nametoindex(dev_cstring.as_ptr()) };
-    if ifindex == 0 {
-        Err(Error::InvalidInterfaceName)
-    } else {
-        Ok(ifindex)
-    }
-}

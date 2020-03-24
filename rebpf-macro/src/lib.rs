@@ -1,3 +1,8 @@
+// This code is released under the
+// GNU Lesser General Public License (LGPL), version 3
+// https://www.gnu.org/licenses/lgpl-3.0.html
+// (c) Lorenzo Vannucci
+
 extern crate proc_macro;
 
 use proc_macro::{TokenStream, TokenTree};
