@@ -29,7 +29,7 @@ pub static _version: u32 = VERSION;
 pub static mut xdp_stats_map: BpfMapDef<u32, DataRec> = BpfMapDef::new(BpfMapType::ARRAY, MAX_ENTRIES);
 
 #[sec("xdp_stats1")]
-fn _xdp_stats1_func(ctx: *const _xdp_md) -> XdpAction {
+fn _xdp_stats1_func(_ctx: *const xdp_md) -> XdpAction {
     let key = XdpAction::PASS as u32;
     let r = helpers::bpf_map_lookup_elem(unsafe { &mut xdp_stats_map }, &key);
     if r.is_none() {

@@ -13,6 +13,6 @@ pub static _license: [u8; 4] = LICENSE;
 pub static _version: u32 = VERSION;
 
 #[sec("xdp_pass")]
-fn _xdp_pass(ctx: *const _xdp_md) -> XdpAction {
+fn _xdp_pass(_ctx: *const xdp_md) -> XdpAction {
     XdpAction::PASS
 }
