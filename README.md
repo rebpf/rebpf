@@ -6,7 +6,7 @@ rebpf is a Rust library built on top of libbpf (no bcc dependency) that allows t
 - High level ebpf api built on top of libbpf wrapper (Future work).
 
 ## rebpf is not RedBPF
-Even if the distance of the name between rebpf and [RedBPF](https://github.com/redsift/redbpf) is very small, this library (rebpf) is an indipendent project that has nothing to do with RedBPF Rust library.
+Even if the distance of the name between rebpf and [RedBPF](https://github.com/redsift/redbpf) is very small, this library (rebpf) is a new indipendent project that has nothing to do with RedBPF Rust library.
 
 ## Usage
 To create your first ebpf program with rebpf library you can copy and rename an [empty project template](https://github.com/uccidibuti/rebpf/tree/master/examples/empty_project) and edit it changing <your_project_name>/src/kern.rs and <your_project_name>/src/user.rs files.
@@ -100,7 +100,7 @@ Success Loading
 [link](https://docs.rs/rebpf/0.1.0/rebpf/).
 
 ## Requirements
-- Linux 4.19+
+- A recent [linux kernel](https://github.com/iovisor/bcc/blob/master/docs/kernel-versions.md)
 - LLVM 9
 - libelf
 - zlib
