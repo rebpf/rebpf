@@ -5,6 +5,9 @@ rebpf is a Rust library built on top of libbpf (no bcc dependency) that allows t
 - A safe wrapper of libbpf (Work in progress).
 - High level ebpf api built on top of libbpf wrapper (Future work).
 
+## rebpf is not RedBPF
+Even if the distance of the name between rebpf and [RedBPF](https://github.com/redsift/redbpf) is very small, this library (rebpf) is an indipendent project that has nothing to do with RedBPF Rust library.
+
 ## Usage
 To create your first ebpf program with rebpf library you can copy and rename an [empty project template](https://github.com/uccidibuti/rebpf/tree/master/examples/empty_project) and edit it changing <your_project_name>/src/kern.rs and <your_project_name>/src/user.rs files.
 
@@ -26,7 +29,7 @@ fn _xdp_drop(ctx: *const _xdp_md) -> XdpAction {
     XdpAction::DROP
 }
 ```
-Note: this ebpf program drop every packets.
+Note: this ebpf program drop every packets received.
 
 ### write your ebpf loader program
 Copy this content in <your_project_name>/src/user.rs:
@@ -97,8 +100,8 @@ Success Loading
 [link](https://docs.rs/rebpf/0.1.0/rebpf/).
 
 ## Requirements
-- Linux 4.19+.
-- LLVM 9.
+- Linux 4.19+
+- LLVM 9
 - libelf
 - zlib
 
