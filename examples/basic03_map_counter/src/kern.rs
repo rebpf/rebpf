@@ -6,17 +6,9 @@
 mod common_kern_user;
 
 use common_kern_user::{DataRec, MAX_ENTRIES};
-use rebpf::{
-    self,
-    xdp::XdpAction,
-    libbpf::xdp_md,
-    LICENSE,
-    VERSION,
-    rebpf_macro::sec,
-    BpfMapDef,
-    BpfMapType,
-    helpers
-};
+use rebpf::maps::{Array, Lookup};
+use rebpf::xdp::{XdpAction, XdpMetadata};
+use rebpf::{self, rebpf_macro::sec, LICENSE, VERSION};
 use std::sync::atomic::Ordering::Relaxed;
 
 #[sec("license")]
@@ -26,17 +18,16 @@ pub static _license: [u8; 4] = LICENSE;
 pub static _version: u32 = VERSION;
 
 #[sec("maps")]
-pub static mut xdp_stats_map: BpfMapDef<u32, DataRec> = BpfMapDef::new(BpfMapType::ARRAY, MAX_ENTRIES);
+pub static xdp_stats_map: Array<DataRec> = Array::new(MAX_ENTRIES);
 
 #[sec("xdp_stats1")]
-fn _xdp_stats1_func(_ctx: *const xdp_md) -> XdpAction {
+fn _xdp_stats1_func(_ctx: &XdpMetadata) -> XdpAction {
     let key = XdpAction::PASS as u32;
-    let r = helpers::bpf_map_lookup_elem(unsafe { &mut xdp_stats_map }, &key);
-    if r.is_none() {
-        return XdpAction::ABORTED;
+    match unsafe { xdp_stats_map.lookup_mut(&key) } {
+        Some(rec) => {
+            rec.rx_packets.fetch_add(1, Relaxed);
+            XdpAction::PASS
+        }
+        None => XdpAction::ABORTED,
     }
-    let rec: &mut DataRec = r.unwrap();
-    rec.rx_packets.fetch_add(1, Relaxed);
-    
-    XdpAction::PASS
 }
