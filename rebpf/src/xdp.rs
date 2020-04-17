@@ -29,11 +29,10 @@ pub enum XdpAction {
     REDIRECT = libbpf::xdp_action_XDP_REDIRECT,
 }
 
-pub fn bpf_set_link_xdp_fd(
-    interface: &Interface,
-    bpf_fd: Option<&BpfProgFd>,
-    xdp_flags: &[XdpFlags],
-) -> Result<(), Error> {
+#[repr(transparent)]
+pub struct XdpMetadata(libbpf::xdp_md);
+
+pub fn bpf_set_link_xdp_fd(interface: &Interface, bpf_fd: Option<&BpfProgFd>, xdp_flags: &[XdpFlags]) -> Result<(), Error> {
     let xdp_flags = xdp_flags.iter().fold(0, |res, f| {
         return res | unsafe { *((f as *const XdpFlags) as *const u32) };
     });

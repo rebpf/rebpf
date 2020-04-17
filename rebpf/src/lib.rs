@@ -5,6 +5,8 @@
 
 pub mod error;
 pub mod helpers;
+pub mod maps;
+pub use rebpf_sys::{libbpf_sys as libbpf, bpf_sys};
 pub mod interface;
 pub mod xdp;
 pub use rebpf_macro;
