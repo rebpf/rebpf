@@ -157,20 +157,16 @@ fn stats_print(stats_rec: &StatsRecord, stats_prev: &StatsRecord) {
     let rec = &stats_rec.stats[0];
     let prev = &stats_prev.stats[0];
 
-    let period = rec.timestamp.checked_duration_since(prev.timestamp);
-    if period.is_some() {
-        let packets =
-            (rec.total.rx_packets.load(Relaxed) - prev.total.rx_packets.load(Relaxed)) as f64;
-        let time = period.unwrap();
-        let pps = packets / time.as_secs_f64();
-        println!(
-            "Action: {:?}, packets: {}, pps: {}, period: {:?}",
-            xdp::XdpAction::PASS,
-            packets,
-            pps,
-            time
-        )
-    }
+    let time = rec.timestamp.duration_since(prev.timestamp);
+    let packets = (rec.total.rx_packets.load(Relaxed) - prev.total.rx_packets.load(Relaxed)) as u64;
+    let pps = packets / time.as_secs();
+    println!(
+        "Action: {:?}, packets: {}, pps: {}, period: {:?}",
+        xdp::XdpAction::PASS,
+        packets,
+        pps,
+        time
+    )
 }
 
 fn run(
