@@ -17,7 +17,7 @@ use std::{
     mem,
     os::raw,
     path::Path,
-    ptr, vec,
+    ptr,
 };
 
 pub const LICENSE: [u8; 4] = ['G' as u8, 'P' as u8, 'L' as u8, '\0' as u8]; //b"GPL\0"
@@ -98,20 +98,39 @@ pub struct BpfObject {
     pobj: *mut libbpf::bpf_object,
 }
 
-impl IntoIterator for &BpfObject {
+pub struct BpfObjectIterator<'a> {
+    src: &'a BpfObject,
+    next: Option<BpfProgram>,
+}
+
+impl BpfObjectIterator<'_> {
+    fn new(src: &BpfObject) -> BpfObjectIterator {
+        let next = bpf_program__next(None, src);
+        BpfObjectIterator { src, next }
+    }
+}
+
+impl Iterator for BpfObjectIterator<'_> {
     type Item = BpfProgram;
-    type IntoIter = vec::IntoIter<Self::Item>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match &self.next {
+            Some(prog) => {
+                let mut next = bpf_program__next(Some(prog), self.src);
+                mem::swap(&mut next, &mut self.next);
+                next
+            }
+            None => None,
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a BpfObject {
+    type Item = BpfProgram;
+    type IntoIter = BpfObjectIterator<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        let mut bpf_programs = Vec::new();
-        let mut prog = bpf_program__next(None, self);
-        while prog.is_some() {
-            let prog2 = bpf_program__next(prog.as_ref(), self);
-            bpf_programs.push(prog.unwrap());
-            prog = prog2;
-        }
-
-        bpf_programs.into_iter()
+        BpfObjectIterator::new(self)
     }
 }
 
