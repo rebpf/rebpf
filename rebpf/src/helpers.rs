@@ -11,7 +11,7 @@ use std::{
     mem
 };
 
-pub fn bpf_map_lookup_elem<'a, 'b, T, U>(map: &'a mut BpfMapDef<T, U>, key: &'b T) -> Option<&'a mut U> {
+pub fn bpf_map_lookup_elem<'a, 'b, T, U>(map: &'a BpfMapDef<T, U>, key: &'b T) -> Option<&'a mut U> {
     type FPtrType = extern "C" fn(m: *const c_void, k: *const c_void) -> *mut c_void;
     unsafe {
         let f: FPtrType = mem::transmute(libbpf::bpf_func_id_BPF_FUNC_map_lookup_elem as usize);

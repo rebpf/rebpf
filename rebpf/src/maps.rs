@@ -1,4 +1,8 @@
-use crate::{helpers::bpf_redirect_map, xdp::XdpAction, BpfMapDef, BpfMapType};
+use crate::{
+    helpers::{bpf_map_lookup_elem, bpf_redirect_map},
+    xdp::XdpAction,
+    BpfMapDef, BpfMapType,
+};
 
 /// This module contains type-safe abstractions around some of various maps that the BPF VM uses to
 /// communicate with userspace. As the capabilities of the maps vary greatly, most of their
@@ -11,6 +15,23 @@ pub trait Redirect {
     fn redirect(&self, target: u32) -> XdpAction {
         self.redirect_or(target, XdpAction::ABORTED)
     }
+}
+
+/// This trait represents the ability to query a map for its content.
+pub trait Lookup {
+    type Key;
+    type Value;
+    /// Lookup the map content associated with the given key.
+    ///
+    /// # Safety
+    ///
+    /// The resulting reference is directly linked to the content of the map, which means
+    /// it's the caller's job to ensure that there are no references to it elsewhere before
+    /// playing around.
+    ///
+    /// CF https://prototype-kernel.readthedocs.io/en/latest/bpf/ebpf_maps.html#kernel-side-ebpf-program
+    /// for reference.
+    unsafe fn lookup_mut<'a>(&'a self, key: &Self::Key) -> Option<&'a mut Self::Value>;
 }
 
 /// A map dedicated to redirecting packet processing to given CPUs, as
@@ -118,5 +139,49 @@ impl DevMap {
 impl Redirect for DevMap {
     fn redirect_or(&self, target: u32, default_action: XdpAction) -> XdpAction {
         bpf_redirect_map(&self.0, &target, default_action)
+    }
+}
+
+/// A map dedicated to redirecting packet processing to other network devices
+/// as part of an XDP BPF program.
+///
+/// Example :
+///
+/// ```
+/// use rebpf::maps::{Array, Lookup};
+/// use rebpf::xdp::{XdpAction, XdpMetadata};
+/// use rebpf_macro::sec;
+///
+/// // Allocate a single-slot map to host our port map.
+/// // The userspace application must take care of setting the interface index
+/// // of the target to the slot 0 of the map.
+/// #[sec("maps")]
+/// pub static array: Array<u32> = Array::new(1);
+///
+/// #[sec("xdp_potential_drop")]
+/// pub fn redirect_dev(ctx: &XdpMetadata) -> XdpAction {
+///     // Redirect all traffic to the only open socket
+///     let key = 0;
+///     match unsafe { array.lookup_mut(&key) } {
+///         Some(0) => XdpAction::DROP,
+///         Some(_) => XdpAction::PASS,
+///         None => XdpAction::ABORTED,
+///     }
+/// }
+/// ```
+#[repr(transparent)]
+pub struct Array<T>(BpfMapDef<u32, T>);
+
+impl<T> Array<T> {
+    pub const fn new(max_entries: u32) -> Array<T> {
+        Array(BpfMapDef::new(BpfMapType::ARRAY, max_entries))
+    }
+}
+
+impl<T> Lookup for Array<T> {
+    type Key = u32;
+    type Value = T;
+    unsafe fn lookup_mut<'a>(&'a self, key: &Self::Key) -> Option<&'a mut Self::Value> {
+        bpf_map_lookup_elem(&self.0, key)
     }
 }
