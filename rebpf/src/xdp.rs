@@ -5,7 +5,7 @@
 
 use rebpf_sys::libbpf_sys as libbpf;
 
-use crate::{interface::Interface, error::Error, BpfProgFd};
+use crate::{error::Error, interface::Interface, BpfProgFd};
 
 #[repr(u32)]
 #[allow(non_camel_case_types)]
@@ -29,7 +29,11 @@ pub enum XdpAction {
     REDIRECT = libbpf::xdp_action_XDP_REDIRECT,
 }
 
-pub fn bpf_set_link_xdp_fd(interface: &Interface, bpf_fd: Option<&BpfProgFd>, xdp_flags: &[XdpFlags]) -> Result<(), Error> {
+pub fn bpf_set_link_xdp_fd(
+    interface: &Interface,
+    bpf_fd: Option<&BpfProgFd>,
+    xdp_flags: &[XdpFlags],
+) -> Result<(), Error> {
     let xdp_flags = xdp_flags.iter().fold(0, |res, f| {
         return res | unsafe { *((f as *const XdpFlags) as *const u32) };
     });
@@ -44,7 +48,6 @@ pub fn bpf_set_link_xdp_fd(interface: &Interface, bpf_fd: Option<&BpfProgFd>, xd
     if err < 0 {
         return Err(Error::BpfSetLinkXdpFd(err));
     }
-    
+
     Ok(())
 }
-
