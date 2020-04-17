@@ -191,6 +191,7 @@ impl<T, U> BpfFd for BpfMapFd<T, U> {
     }
 }
 
+#[repr(transparent)]
 pub struct BpfMapDef<T, U> {
     map_def: libbpf::bpf_map_def,
     _key_ty: PhantomData<T>,
