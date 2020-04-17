@@ -12,13 +12,10 @@ use std::{
 };
 
 pub fn bpf_map_lookup_elem<'a, 'b, T, U>(map: &'a mut BpfMapDef<T, U>, key: &'b T) -> Option<&'a mut U> {
-    type FPtrType = extern "C" fn(m: *mut c_void, k: *const c_void) -> *mut c_void;
+    type FPtrType = extern "C" fn(m: *const c_void, k: *const c_void) -> *mut c_void;
     unsafe {
         let f: FPtrType = mem::transmute(libbpf::bpf_func_id_BPF_FUNC_map_lookup_elem as usize);
-        let value = f(
-            to_mut_c_void(&mut map.map_def),
-            to_const_c_void(key)
-        );
+        let value = f(to_const_c_void(&map.map_def), to_const_c_void(key));
         if value.is_null() {
             None
         } else {
