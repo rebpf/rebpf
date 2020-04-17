@@ -3,22 +3,22 @@
 // https://www.gnu.org/licenses/lgpl-3.0.html
 // (c) Lorenzo Vannucci
 
-pub mod xdp;
 pub mod error;
-pub mod interface;
 pub mod helpers;
-pub use rebpf_sys::{libbpf_sys as libbpf, bpf_sys};
+pub mod interface;
+pub mod xdp;
 pub use rebpf_macro;
+pub use rebpf_sys::{bpf_sys, libbpf_sys as libbpf};
 
-use std::{
-    vec,
-    os::raw,
-    ptr, path::Path,
-    ffi::{CString, CStr},
-    mem,
-    marker::PhantomData,
-};
 use error::Error;
+use std::{
+    ffi::{CStr, CString},
+    marker::PhantomData,
+    mem,
+    os::raw,
+    path::Path,
+    ptr, vec,
+};
 
 pub const LICENSE: [u8; 4] = ['G' as u8, 'P' as u8, 'L' as u8, '\0' as u8]; //b"GPL\0"
 pub const VERSION: u32 = 0xFFFFFFFE;
@@ -28,7 +28,7 @@ pub const VERSION: u32 = 0xFFFFFFFE;
 pub enum BpfProgType {
     UNSPEC = libbpf::bpf_prog_type_BPF_PROG_TYPE_UNSPEC,
     SOCKET_FILTER = libbpf::bpf_prog_type_BPF_PROG_TYPE_SOCKET_FILTER,
-    KPROBE =  libbpf::bpf_prog_type_BPF_PROG_TYPE_KPROBE,
+    KPROBE = libbpf::bpf_prog_type_BPF_PROG_TYPE_KPROBE,
     SCHED_CLS = libbpf::bpf_prog_type_BPF_PROG_TYPE_SCHED_CLS,
     SCHED_ACT = libbpf::bpf_prog_type_BPF_PROG_TYPE_SCHED_ACT,
     TRACEPOINT = libbpf::bpf_prog_type_BPF_PROG_TYPE_TRACEPOINT,
@@ -91,11 +91,11 @@ pub enum BpfMapType {
     QUEUE = libbpf::bpf_map_type_BPF_MAP_TYPE_QUEUE,
     STACK = libbpf::bpf_map_type_BPF_MAP_TYPE_STACK,
     SK_STORAGE = libbpf::bpf_map_type_BPF_MAP_TYPE_SK_STORAGE,
-    DEVMAP_HASH = libbpf::bpf_map_type_BPF_MAP_TYPE_DEVMAP_HASH
+    DEVMAP_HASH = libbpf::bpf_map_type_BPF_MAP_TYPE_DEVMAP_HASH,
 }
 
 pub struct BpfObject {
-    pobj: *mut libbpf::bpf_object
+    pobj: *mut libbpf::bpf_object,
 }
 
 impl IntoIterator for &BpfObject {
@@ -117,7 +117,7 @@ impl IntoIterator for &BpfObject {
 
 pub trait BpfFd {
     type BpfInfoType;
-    fn fd(&self) -> raw::c_int;    
+    fn fd(&self) -> raw::c_int;
 }
 
 pub trait BpfInfo {
@@ -125,25 +125,30 @@ pub trait BpfInfo {
     fn new(raw_info: Self::BpfRawInfoType) -> Self;
 }
 
-pub type BpfProgFd = BpfFdImpl<BpfProgInfo, libbpf::bpf_prog_info>; 
+pub type BpfProgFd = BpfFdImpl<BpfProgInfo, libbpf::bpf_prog_info>;
 
 pub struct BpfFdImpl<T, U>
-where T: BpfInfo<BpfRawInfoType = U> {
+where
+    T: BpfInfo<BpfRawInfoType = U>,
+{
     fd: raw::c_int,
     _info_type: std::marker::PhantomData<T>,
 }
 
 impl<T, U> BpfFd for BpfFdImpl<T, U>
-where T: BpfInfo<BpfRawInfoType = U> {
+where
+    T: BpfInfo<BpfRawInfoType = U>,
+{
     type BpfInfoType = T;
 
-    fn fd(&self) -> raw::c_int { self.fd }
+    fn fd(&self) -> raw::c_int {
+        self.fd
+    }
 }
 
 pub struct BpfProgram {
-    pprogram: *mut libbpf::bpf_program
+    pprogram: *mut libbpf::bpf_program,
 }
-
 
 pub struct BpfProgInfo {
     info: libbpf::bpf_prog_info,
@@ -152,15 +157,15 @@ pub struct BpfProgInfo {
 impl BpfInfo for BpfProgInfo {
     type BpfRawInfoType = libbpf::bpf_prog_info;
     fn new(raw_info: Self::BpfRawInfoType) -> Self {
-        BpfProgInfo {
-            info: raw_info
-        }
+        BpfProgInfo { info: raw_info }
     }
 }
-    
+
 impl BpfProgInfo {
-    pub fn id(&self) -> u32 { self.info.id }
-    
+    pub fn id(&self) -> u32 {
+        self.info.id
+    }
+
     pub fn name(&self) -> Result<String, Error> {
         let name = &self.info.name;
         c_char_pointer_to_string(name.as_ptr())
@@ -168,7 +173,7 @@ impl BpfProgInfo {
 }
 
 pub struct BpfMap {
-    pmap: *mut libbpf::bpf_map
+    pmap: *mut libbpf::bpf_map,
 }
 
 pub type UnsafeBpfMapFd = BpfFdImpl<BpfMapInfo, libbpf::bpf_map_info>;
@@ -176,7 +181,7 @@ pub type UnsafeBpfMapFd = BpfFdImpl<BpfMapInfo, libbpf::bpf_map_info>;
 pub struct BpfMapFd<T, U> {
     map_fd: UnsafeBpfMapFd,
     _key_ty: std::marker::PhantomData<T>,
-    _value_ty: std::marker::PhantomData<U>
+    _value_ty: std::marker::PhantomData<U>,
 }
 
 impl<T, U> BpfFd for BpfMapFd<T, U> {
@@ -189,7 +194,7 @@ impl<T, U> BpfFd for BpfMapFd<T, U> {
 pub struct BpfMapDef<T, U> {
     map_def: libbpf::bpf_map_def,
     _key_ty: PhantomData<T>,
-    _value_ty: PhantomData<U>
+    _value_ty: PhantomData<U>,
 }
 
 impl<T, U> BpfMapDef<T, U> {
@@ -200,10 +205,10 @@ impl<T, U> BpfMapDef<T, U> {
                 key_size: mem::size_of::<T>() as u32,
                 value_size: mem::size_of::<U>() as u32,
                 max_entries,
-                map_flags: 0
+                map_flags: 0,
             },
             _key_ty: PhantomData,
-            _value_ty: PhantomData
+            _value_ty: PhantomData,
         }
     }
 
@@ -214,35 +219,39 @@ impl<T, U> BpfMapDef<T, U> {
         info.value_size = self.map_def.value_size;
         info.max_entries = self.map_def.max_entries;
         info.map_flags = self.map_def.map_flags;
-        BpfMapInfo {
-            info
-        }
+        BpfMapInfo { info }
     }
 }
 
 pub struct BpfMapInfo {
-    info: libbpf::bpf_map_info
+    info: libbpf::bpf_map_info,
 }
 
 impl BpfInfo for BpfMapInfo {
     type BpfRawInfoType = libbpf::bpf_map_info;
     fn new(raw_info: Self::BpfRawInfoType) -> Self {
-        BpfMapInfo {
-            info: raw_info
-        }
+        BpfMapInfo { info: raw_info }
     }
 }
 
 impl BpfMapInfo {
-    pub fn id(&self) -> u32 { self.info.id }
-    pub fn value_size(&self) -> u32 { self.info.value_size }
-    pub fn key_size(&self) -> u32 { self.info.key_size }
-    pub fn max_entries(&self) -> u32 { self.info.max_entries }
+    pub fn id(&self) -> u32 {
+        self.info.id
+    }
+    pub fn value_size(&self) -> u32 {
+        self.info.value_size
+    }
+    pub fn key_size(&self) -> u32 {
+        self.info.key_size
+    }
+    pub fn max_entries(&self) -> u32 {
+        self.info.max_entries
+    }
     pub fn type_(&self) -> BpfMapType {
         let map_type: BpfMapType = unsafe { std::mem::transmute(self.info.type_) };
         map_type
     }
-    
+
     pub fn name(&self) -> Result<String, Error> {
         let name = &self.info.name;
         c_char_pointer_to_string(name.as_ptr())
@@ -250,21 +259,25 @@ impl BpfMapInfo {
 }
 
 pub fn bpf_obj_get_info_by_fd<T: BpfFd>(bpf_fd: &T) -> Result<T::BpfInfoType, Error>
-where T::BpfInfoType: BpfInfo,  {
+where
+    T::BpfInfoType: BpfInfo,
+{
     let mut info: <<T as BpfFd>::BpfInfoType as BpfInfo>::BpfRawInfoType = unsafe { mem::zeroed() };
     let info_void_p = helpers::to_mut_c_void(&mut info);
-    let mut info_len: u32 = mem::size_of::<<<T as BpfFd>::BpfInfoType as BpfInfo>::BpfRawInfoType>() as u32;
-    let err = unsafe {
-        libbpf::bpf_obj_get_info_by_fd(bpf_fd.fd(), info_void_p, &mut info_len)
-    };
+    let mut info_len: u32 =
+        mem::size_of::<<<T as BpfFd>::BpfInfoType as BpfInfo>::BpfRawInfoType>() as u32;
+    let err = unsafe { libbpf::bpf_obj_get_info_by_fd(bpf_fd.fd(), info_void_p, &mut info_len) };
     if err != 0 {
         return Err(Error::BpfObjGetInfoByFd(err));
     }
-    
+
     Ok(<<T as BpfFd>::BpfInfoType as BpfInfo>::new(info))
 }
 
-pub fn bpf_prog_load(file_path: &Path, bpf_prog_type: BpfProgType) -> Result<(BpfObject, BpfProgFd), Error> {
+pub fn bpf_prog_load(
+    file_path: &Path,
+    bpf_prog_type: BpfProgType,
+) -> Result<(BpfObject, BpfProgFd), Error> {
     let mut pobj: *mut libbpf::bpf_object = ptr::null_mut();
     let mut prog_fd: raw::c_int = -1;
 
@@ -280,16 +293,20 @@ pub fn bpf_prog_load(file_path: &Path, bpf_prog_type: BpfProgType) -> Result<(Bp
         return Err(Error::InvalidPath);
     }
 
-    Ok((BpfObject { pobj }, BpfProgFd { fd: prog_fd, _info_type: std::marker::PhantomData }))
+    Ok((
+        BpfObject { pobj },
+        BpfProgFd {
+            fd: prog_fd,
+            _info_type: std::marker::PhantomData,
+        },
+    ))
 }
 
 #[allow(non_snake_case)]
 pub fn bpf_map_lookup_elem<T, U>(map_fd: &BpfMapFd<T, U>, key: &T, value: &mut U) -> Option<()> {
     let key_void_p = helpers::to_const_c_void(key);
     let value_void_p = helpers::to_mut_c_void(value);
-    let err = unsafe {
-        libbpf::bpf_map_lookup_elem(map_fd.fd(), key_void_p, value_void_p)
-    };
+    let err = unsafe { libbpf::bpf_map_lookup_elem(map_fd.fd(), key_void_p, value_void_p) };
     if err != 0 {
         return None;
     }
@@ -297,31 +314,33 @@ pub fn bpf_map_lookup_elem<T, U>(map_fd: &BpfMapFd<T, U>, key: &T, value: &mut U
 }
 
 #[allow(non_snake_case)]
-pub fn bpf_object__find_program_by_title(bpf_object: &BpfObject, title: &str) -> Result<Option<BpfProgram>, Error> {
+pub fn bpf_object__find_program_by_title(
+    bpf_object: &BpfObject,
+    title: &str,
+) -> Result<Option<BpfProgram>, Error> {
     let title_cs: CString = str_to_cstring(title)?;
-    let bpf_program: *mut libbpf::bpf_program = unsafe {
-        libbpf::bpf_object__find_program_by_title(bpf_object.pobj, title_cs.as_ptr())
-    };
+    let bpf_program: *mut libbpf::bpf_program =
+        unsafe { libbpf::bpf_object__find_program_by_title(bpf_object.pobj, title_cs.as_ptr()) };
     if bpf_program.is_null() {
         return Ok(None);
     }
     Ok(Some(BpfProgram {
-        pprogram: bpf_program
+        pprogram: bpf_program,
     }))
 }
 
 #[allow(non_snake_case)]
-pub fn bpf_object__find_map_by_name(bpf_object: &BpfObject, name: &str) -> Result<Option<BpfMap>, Error> {
+pub fn bpf_object__find_map_by_name(
+    bpf_object: &BpfObject,
+    name: &str,
+) -> Result<Option<BpfMap>, Error> {
     let name_cs = str_to_cstring(name)?;
-    let bpf_map = unsafe {
-        libbpf::bpf_object__find_map_by_name(bpf_object.pobj, name_cs.as_ptr())
-    };
+    let bpf_map =
+        unsafe { libbpf::bpf_object__find_map_by_name(bpf_object.pobj, name_cs.as_ptr()) };
     if bpf_map.is_null() {
         return Ok(None);
     }
-    Ok(Some(BpfMap {
-        pmap: bpf_map
-    }))
+    Ok(Some(BpfMap { pmap: bpf_map }))
 }
 
 #[allow(non_snake_case)]
@@ -339,7 +358,10 @@ pub fn bpf_program__set_ifindex(bpf_program: &mut BpfProgram, interface: &interf
 }
 
 #[allow(non_snake_case)]
-pub fn bpf_program__next(bpf_program: Option<&BpfProgram>, bpf_object: &BpfObject) -> Option<BpfProgram> {
+pub fn bpf_program__next(
+    bpf_program: Option<&BpfProgram>,
+    bpf_object: &BpfObject,
+) -> Option<BpfProgram> {
     let pprogram = unsafe {
         if bpf_program.is_some() {
             libbpf::bpf_program__next(bpf_program.unwrap().pprogram, bpf_object.pobj)
@@ -355,20 +377,19 @@ pub fn bpf_program__next(bpf_program: Option<&BpfProgram>, bpf_object: &BpfObjec
 
 #[allow(non_snake_case)]
 pub fn bpf_program__fd(bpf_program: &BpfProgram) -> Result<BpfProgFd, Error> {
-    let prog_fd = unsafe {
-        libbpf::bpf_program__fd(bpf_program.pprogram)
-    };
+    let prog_fd = unsafe { libbpf::bpf_program__fd(bpf_program.pprogram) };
     if prog_fd < 0 {
         return Err(Error::InvalidBpfProgram);
     }
-    Ok(BpfProgFd { fd: prog_fd, _info_type: std::marker::PhantomData })
+    Ok(BpfProgFd {
+        fd: prog_fd,
+        _info_type: std::marker::PhantomData,
+    })
 }
 
 #[allow(non_snake_case)]
 pub fn bpf_program__title(bpf_program: &BpfProgram) -> Result<String, Error> {
-    let title_c_char_p = unsafe {
-        libbpf::bpf_program__title(bpf_program.pprogram, false)
-    };
+    let title_c_char_p = unsafe { libbpf::bpf_program__title(bpf_program.pprogram, false) };
     if title_c_char_p.is_null() {
         return Err(Error::InvalidBpfProgram);
     }
@@ -382,12 +403,12 @@ pub fn bpf_map__fd<T, U>(bpf_map: &BpfMap) -> Result<BpfMapFd<T, U>, Error> {
         return Err(Error::InvalidBpfMap);
     }
     Ok(BpfMapFd {
-       map_fd: UnsafeBpfMapFd {
-           fd,
-           _info_type: std::marker::PhantomData
-       },
-       _key_ty: std::marker::PhantomData,
-       _value_ty: std::marker::PhantomData
+        map_fd: UnsafeBpfMapFd {
+            fd,
+            _info_type: std::marker::PhantomData,
+        },
+        _key_ty: std::marker::PhantomData,
+        _value_ty: std::marker::PhantomData,
     })
 }
 
@@ -399,7 +420,7 @@ fn str_to_cstring(s: &str) -> Result<CString, Error> {
     let cstring_r = CString::new(s);
     match cstring_r {
         Ok(cstring) => Ok(cstring),
-        Err(nul_error) => Err(Error::CStringConversion(nul_error))
+        Err(nul_error) => Err(Error::CStringConversion(nul_error)),
     }
 }
 
@@ -407,6 +428,6 @@ fn c_char_pointer_to_string(c_char_p: *const raw::c_char) -> Result<String, Erro
     let cs = unsafe { CStr::from_ptr(c_char_p) };
     match cs.to_str() {
         Ok(s) => Ok(String::from(s)),
-        Err(e) => Err(Error::CCharConversion(e))
+        Err(e) => Err(Error::CCharConversion(e)),
     }
 }
