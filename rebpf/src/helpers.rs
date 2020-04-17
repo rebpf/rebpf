@@ -3,39 +3,45 @@
 // https://www.gnu.org/licenses/lgpl-3.0.html
 // (c) Lorenzo Vannucci
 
+use crate::{error::Error, xdp::XdpAction, BpfMapDef, BpfUpdateElemType};
 use rebpf_sys::libbpf_sys as libbpf;
-use crate::{BpfMapDef, BpfUpdateElemType, error::Error};
 use std::{
-    os::raw::{c_void, c_int},
+    mem,
     option::Option,
-    mem
+    os::raw::{c_int, c_void},
 };
 
-pub fn bpf_map_lookup_elem<'a, 'b, T, U>(map: &'a mut BpfMapDef<T, U>, key: &'b T) -> Option<&'a mut U> {
+pub fn bpf_map_lookup_elem<'a, 'b, T, U>(
+    map: &'a mut BpfMapDef<T, U>,
+    key: &'b T,
+) -> Option<&'a mut U> {
     type FPtrType = extern "C" fn(m: *mut c_void, k: *const c_void) -> *mut c_void;
     unsafe {
         let f: FPtrType = mem::transmute(libbpf::bpf_func_id_BPF_FUNC_map_lookup_elem as usize);
-        let value = f(
-            to_mut_c_void(&mut map.map_def),
-            to_const_c_void(key)
-        );
+        let value = f(to_mut_c_void(&mut map.map_def), to_const_c_void(key));
         if value.is_null() {
             None
         } else {
-            Some(&mut*(value as *mut U))
+            Some(&mut *(value as *mut U))
         }
     }
 }
 
-pub fn bpf_map_update_elem<'a, 'b, T, U>(map: &'a mut BpfMapDef<T, U>, key: &'b T, value: &'a U, flags: BpfUpdateElemType) -> Result<(), Error> {
-    type FPtrType = extern "C" fn(m: *mut c_void, k: *const c_void, v: *const c_void, f: u64) -> c_int;
-    let r =  unsafe {
+pub fn bpf_map_update_elem<'a, 'b, T, U>(
+    map: &'a mut BpfMapDef<T, U>,
+    key: &'b T,
+    value: &'a U,
+    flags: BpfUpdateElemType,
+) -> Result<(), Error> {
+    type FPtrType =
+        extern "C" fn(m: *mut c_void, k: *const c_void, v: *const c_void, f: u64) -> c_int;
+    let r = unsafe {
         let f: FPtrType = mem::transmute(libbpf::bpf_func_id_BPF_FUNC_map_update_elem as usize);
         f(
             to_mut_c_void(&mut map.map_def),
             to_const_c_void(key),
             to_const_c_void(value),
-            flags as u64
+            flags as u64,
         )
     };
     if r < 0 {
