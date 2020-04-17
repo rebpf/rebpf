@@ -383,11 +383,10 @@ pub fn bpf_program__next(
     bpf_object: &BpfObject,
 ) -> Option<BpfProgram> {
     let pprogram = unsafe {
-        if bpf_program.is_some() {
-            libbpf::bpf_program__next(bpf_program.unwrap().pprogram, bpf_object.pobj)
-        } else {
-            libbpf::bpf_program__next(ptr::null_mut(), bpf_object.pobj)
-        }
+        libbpf::bpf_program__next(
+            bpf_program.map(|p| p.pprogram).unwrap_or(ptr::null_mut()),
+            bpf_object.pobj,
+        )
     };
     if pprogram.is_null() {
         return None;
