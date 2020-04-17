@@ -5,7 +5,7 @@
 
 use rebpf_sys::libbpf_sys as libbpf;
 
-use crate::{interface::Interface, error::Error, BpfProgFd};
+use crate::{error::Error, interface::Interface, BpfProgFd};
 
 #[repr(u32)]
 #[allow(non_camel_case_types)]
@@ -47,7 +47,6 @@ pub fn bpf_set_link_xdp_fd(interface: &Interface, bpf_fd: Option<&BpfProgFd>, xd
     if err < 0 {
         return Err(Error::BpfSetLinkXdpFd(err));
     }
-    
+
     Ok(())
 }
-

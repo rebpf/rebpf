@@ -61,7 +61,7 @@ fn _create_binding(name: &str) {
     let bind = bindgen::Builder::default()
     // The input header we would like to generate
     // bindings for.
-        .header(&format!("{}.h", name))
+        .header(format!("{}.h", name))
         .layout_tests(false)
     // Tell cargo to invalidate the built crate whenever any of the
     // included header files changed.
