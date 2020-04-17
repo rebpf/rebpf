@@ -3,7 +3,6 @@
 // https://www.gnu.org/licenses/lgpl-3.0.html
 // (c) Lorenzo Vannucci
 
-use crate::{error::Error, xdp::XdpAction, BpfMapDef, BpfUpdateElemType};
 use rebpf_sys::libbpf_sys as libbpf;
 use crate::{BpfMapDef, BpfUpdateElemType, error::Error, xdp::XdpAction};
 use std::{

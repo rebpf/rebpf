@@ -10,7 +10,6 @@ pub use rebpf_sys::{libbpf_sys as libbpf, bpf_sys};
 pub mod interface;
 pub mod xdp;
 pub use rebpf_macro;
-pub use rebpf_sys::{bpf_sys, libbpf_sys as libbpf};
 
 use error::Error;
 use std::{
