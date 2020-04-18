@@ -1,9 +1,9 @@
 # rebpf
 rebpf is a Rust library built on top of libbpf (no bcc dependency) that allows to write and load bpf program, in details this library provides:
 
-- A raw binding of libbpf.
+- A raw binding of libbpf provide by [libbpf-sys](https://github.com/alexforster/libbpf-sys).
 - A safe wrapper of libbpf (Work in progress).
-- High level ebpf api built on top of libbpf wrapper (Future work).
+- High level ebpf api built on top of libbpf wrapper (Work in progress).
 
 ## rebpf is not RedBPF
 Even if the distance of the name between rebpf and [RedBPF](https://github.com/redsift/redbpf) is very small, this library (rebpf) is a new indipendent project that has nothing to do with RedBPF Rust library.

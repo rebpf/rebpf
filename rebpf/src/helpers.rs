@@ -3,7 +3,7 @@
 // https://www.gnu.org/licenses/lgpl-3.0.html
 // (c) Lorenzo Vannucci
 
-use rebpf_sys::libbpf_sys as libbpf;
+use libbpf_sys as libbpf;
 use crate::{BpfMapDef, BpfUpdateElemType, error::Error, xdp::XdpAction};
 use std::{
     mem,
@@ -14,7 +14,7 @@ use std::{
 pub fn bpf_map_lookup_elem<'a, 'b, T, U>(map: &'a BpfMapDef<T, U>, key: &'b T) -> Option<&'a mut U> {
     type FPtrType = extern "C" fn(m: *const c_void, k: *const c_void) -> *mut c_void;
     unsafe {
-        let f: FPtrType = mem::transmute(libbpf::bpf_func_id_BPF_FUNC_map_lookup_elem as usize);
+        let f: FPtrType = mem::transmute(libbpf::BPF_FUNC_map_lookup_elem as usize);
         let value = f(to_const_c_void(&map.map_def), to_const_c_void(key));
         if value.is_null() {
             None
@@ -33,7 +33,7 @@ pub fn bpf_map_update_elem<'a, 'b, T, U>(
     type FPtrType =
         extern "C" fn(m: *mut c_void, k: *const c_void, v: *const c_void, f: u64) -> c_int;
     let r = unsafe {
-        let f: FPtrType = mem::transmute(libbpf::bpf_func_id_BPF_FUNC_map_update_elem as usize);
+        let f: FPtrType = mem::transmute(libbpf::BPF_FUNC_map_update_elem as usize);
         f(
             to_mut_c_void(&mut map.map_def),
             to_const_c_void(key),
@@ -65,7 +65,7 @@ pub fn bpf_redirect_map<'a, 'b, U>(
 
     type FPtrType = extern "C" fn(m: *const c_void, k: *const c_void, f: u64) -> c_int;
     unsafe {
-        let f: FPtrType = mem::transmute(libbpf::bpf_func_id_BPF_FUNC_redirect_map as usize);
+        let f: FPtrType = mem::transmute(libbpf::BPF_FUNC_redirect_map as usize);
         let r = f(
             to_const_c_void(&map.map_def),
             to_const_c_void(key),

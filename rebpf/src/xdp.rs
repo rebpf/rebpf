@@ -3,7 +3,7 @@
 // https://www.gnu.org/licenses/lgpl-3.0.html
 // (c) Lorenzo Vannucci
 
-use rebpf_sys::libbpf_sys as libbpf;
+use libbpf_sys as libbpf;
 
 use crate::{error::Error, interface::Interface, BpfProgFd};
 
@@ -22,11 +22,11 @@ pub enum XdpFlags {
 #[repr(u32)]
 #[allow(non_camel_case_types)]
 pub enum XdpAction {
-    ABORTED = libbpf::xdp_action_XDP_ABORTED,
-    DROP = libbpf::xdp_action_XDP_DROP,
-    PASS = libbpf::xdp_action_XDP_PASS,
-    TX = libbpf::xdp_action_XDP_TX,
-    REDIRECT = libbpf::xdp_action_XDP_REDIRECT,
+    ABORTED = libbpf::XDP_ABORTED,
+    DROP = libbpf::XDP_DROP,
+    PASS = libbpf::XDP_PASS,
+    TX = libbpf::XDP_TX,
+    REDIRECT = libbpf::XDP_REDIRECT,
 }
 
 #[repr(transparent)]

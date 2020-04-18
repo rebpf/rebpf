@@ -14,5 +14,5 @@ keywords = ["bpf", "ebpf", "rebpf", "xdp"]
 
 [dependencies]
 libc = "0.2.66"
-rebpf-sys = { path = "../rebpf-sys", version = "0.1.0" }
+libbpf-sys = "0.0.7-1"
 rebpf-macro = { path = "../rebpf-macro", version = "0.1.0" }
