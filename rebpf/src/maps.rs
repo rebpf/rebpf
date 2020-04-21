@@ -1,6 +1,6 @@
 use crate::{
     helpers::{bpf_map_lookup_elem, bpf_redirect_map},
-    xdp::XdpAction,
+    XdpAction,
     BpfMapDef, BpfMapType,
 };
 

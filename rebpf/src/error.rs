@@ -1,22 +1,23 @@
-// This code is released under the
-// GNU Lesser General Public License (LGPL), version 3
-// https://www.gnu.org/licenses/lgpl-3.0.html
-// (c) Lorenzo Vannucci
+#[derive(Debug)]
+pub enum Error {    
+    Libbpf(String, LibbpfError),
+    Generic(GenericError),
+    InvalidProgName,
+    InvalidMapName,
+    Custom(String),
+}
 
 #[derive(Debug)]
-pub enum Error {
+pub enum GenericError {
     CStringConversion(std::ffi::NulError),
     CCharConversion(std::str::Utf8Error),
-    InvalidInterfaceName,
     InvalidPath,
-    InvalidProgSec,
-    InvalidMapName,
-    InvalidBpfProgram,
-    InvalidInfoSize,
-    InvalidBpfMap,
-    BpfProgLoad(std::os::raw::c_int),
-    BpfSetLinkXdpFd(std::os::raw::c_int),
-    BpfObjGetInfoByFd(std::os::raw::c_int),
-    BpfMapUpdateElem(std::os::raw::c_int),
-    CustomError(String)
+    InvalidInterfaceName(String)
+}
+
+#[derive(Debug)]
+pub enum LibbpfError {
+    LibbpfSys(std::os::raw::c_int),
+    InvalidFd,
+    InvalidTitle,
 }

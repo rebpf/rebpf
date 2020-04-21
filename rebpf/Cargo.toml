@@ -16,3 +16,4 @@ keywords = ["bpf", "ebpf", "rebpf", "xdp"]
 libc = "0.2.66"
 libbpf-sys = "0.0.7-1"
 rebpf-macro = { path = "../rebpf-macro", version = "0.1.0" }
+function_name = "0.2.0"

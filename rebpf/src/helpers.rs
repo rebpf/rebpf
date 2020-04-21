@@ -1,10 +1,9 @@
-// This code is released under the
-// GNU Lesser General Public License (LGPL), version 3
-// https://www.gnu.org/licenses/lgpl-3.0.html
-// (c) Lorenzo Vannucci
-
 use libbpf_sys as libbpf;
-use crate::{BpfMapDef, BpfUpdateElemType, error::Error, xdp::XdpAction};
+use crate::{
+    BpfMapDef, BpfUpdateElemType, XdpAction,
+    error::{Error, LibbpfError},
+    utils::*
+};
 use std::{
     mem,
     option::Option,
@@ -24,6 +23,7 @@ pub fn bpf_map_lookup_elem<'a, 'b, T, U>(map: &'a BpfMapDef<T, U>, key: &'b T) -
     }
 }
 
+#[named]
 pub fn bpf_map_update_elem<'a, 'b, T, U>(
     map: &'a mut BpfMapDef<T, U>,
     key: &'b T,
@@ -42,7 +42,9 @@ pub fn bpf_map_update_elem<'a, 'b, T, U>(
         )
     };
     if r < 0 {
-        return Err(Error::BpfMapUpdateElem(r));
+        return map_libbpf_error(function_name!(), LibbpfError::LibbpfSys(r));
+
+//        return Err(Error::BpfMapUpdateElem(r));
     }
     Ok(())
 }
@@ -75,10 +77,3 @@ pub fn bpf_redirect_map<'a, 'b, U>(
     }
 }
 
-pub(crate) fn to_const_c_void<T>(v: &T) -> *const c_void {
-    v as *const T as *const c_void
-}
-
-pub(crate) fn to_mut_c_void<T>(v: &mut T) -> *mut c_void {
-    v as *mut T as *mut c_void
-}

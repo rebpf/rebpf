@@ -1,25 +1,23 @@
-// This code is released under the
-// GNU Lesser General Public License (LGPL), version 3
-// https://www.gnu.org/licenses/lgpl-3.0.html
-// (c) Lorenzo Vannucci
-
 pub mod error;
+pub mod interface;
 pub mod helpers;
 pub mod maps;
-pub use libbpf_sys as libbpf;
-pub mod interface;
-pub mod xdp;
+pub mod utils;
 pub use rebpf_macro;
+pub use libbpf_sys as libbpf;
 
-use error::Error;
+use error::{Error, LibbpfError};
+use utils::*;
 use std::{
-    ffi::{CStr, CString},
+    ffi::CString,
     marker::PhantomData,
     mem,
     os::raw,
     path::Path,
     ptr,
 };
+
+#[macro_use] extern crate function_name;
 
 pub const LICENSE: [u8; 4] = ['G' as u8, 'P' as u8, 'L' as u8, '\0' as u8]; //b"GPL\0"
 pub const VERSION: u32 = 0xFFFFFFFE;
@@ -186,6 +184,7 @@ impl BpfProgInfo {
         self.info.id
     }
 
+    #[named]
     pub fn name(&self) -> Result<String, Error> {
         let name = &self.info.name;
         c_char_pointer_to_string(name.as_ptr())
@@ -279,22 +278,24 @@ impl BpfMapInfo {
     }
 }
 
+#[named]
 pub fn bpf_obj_get_info_by_fd<T: BpfFd>(bpf_fd: &T) -> Result<T::BpfInfoType, Error>
 where
     T::BpfInfoType: BpfInfo,
 {
     let mut info: <<T as BpfFd>::BpfInfoType as BpfInfo>::BpfRawInfoType = unsafe { mem::zeroed() };
-    let info_void_p = helpers::to_mut_c_void(&mut info);
+    let info_void_p = to_mut_c_void(&mut info);
     let mut info_len: u32 =
         mem::size_of::<<<T as BpfFd>::BpfInfoType as BpfInfo>::BpfRawInfoType>() as u32;
     let err = unsafe { libbpf::bpf_obj_get_info_by_fd(bpf_fd.fd(), info_void_p, &mut info_len) };
     if err != 0 {
-        return Err(Error::BpfObjGetInfoByFd(err));
+        return map_libbpf_error(function_name!(), LibbpfError::LibbpfSys(err));
     }
 
     Ok(<<T as BpfFd>::BpfInfoType as BpfInfo>::new(info))
 }
 
+#[named]
 pub fn bpf_prog_load(
     file_path: &Path,
     bpf_prog_type: BpfProgType,
@@ -308,10 +309,10 @@ pub fn bpf_prog_load(
         libbpf::bpf_prog_load(file.as_ptr(), bpf_prog_type as u32, &mut pobj, &mut prog_fd)
     };
     if err != 0 {
-        return Err(Error::BpfProgLoad(err));
+        return map_libbpf_error(function_name!(), LibbpfError::LibbpfSys(err));
     }
     if prog_fd < 0 {
-        return Err(Error::InvalidPath);
+        return map_libbpf_error(function_name!(), LibbpfError::InvalidFd);
     }
 
     Ok((
@@ -325,8 +326,8 @@ pub fn bpf_prog_load(
 
 #[allow(non_snake_case)]
 pub fn bpf_map_lookup_elem<T, U>(map_fd: &BpfMapFd<T, U>, key: &T, value: &mut U) -> Option<()> {
-    let key_void_p = helpers::to_const_c_void(key);
-    let value_void_p = helpers::to_mut_c_void(value);
+    let key_void_p = to_const_c_void(key);
+    let value_void_p = to_mut_c_void(value);
     let err = unsafe { libbpf::bpf_map_lookup_elem(map_fd.fd(), key_void_p, value_void_p) };
     if err != 0 {
         return None;
@@ -396,10 +397,11 @@ pub fn bpf_program__next(
 }
 
 #[allow(non_snake_case)]
+#[named]
 pub fn bpf_program__fd(bpf_program: &BpfProgram) -> Result<BpfProgFd, Error> {
     let prog_fd = unsafe { libbpf::bpf_program__fd(bpf_program.pprogram) };
     if prog_fd < 0 {
-        return Err(Error::InvalidBpfProgram);
+        return map_libbpf_error(function_name!(), LibbpfError::InvalidFd);
     }
     Ok(BpfProgFd {
         fd: prog_fd,
@@ -408,19 +410,21 @@ pub fn bpf_program__fd(bpf_program: &BpfProgram) -> Result<BpfProgFd, Error> {
 }
 
 #[allow(non_snake_case)]
+#[named]
 pub fn bpf_program__title(bpf_program: &BpfProgram) -> Result<String, Error> {
     let title_c_char_p = unsafe { libbpf::bpf_program__title(bpf_program.pprogram, false) };
     if title_c_char_p.is_null() {
-        return Err(Error::InvalidBpfProgram);
+        return map_libbpf_error(function_name!(), LibbpfError::InvalidTitle);
     }
     c_char_pointer_to_string(title_c_char_p)
 }
 
 #[allow(non_snake_case)]
+#[named]
 pub fn bpf_map__fd<T, U>(bpf_map: &BpfMap) -> Result<BpfMapFd<T, U>, Error> {
     let fd = unsafe { libbpf::bpf_map__fd(bpf_map.pmap) };
     if fd < 0 {
-        return Err(Error::InvalidBpfMap);
+        return map_libbpf_error(function_name!(), LibbpfError::InvalidFd);
     }
     Ok(BpfMapFd {
         map_fd: UnsafeBpfMapFd {
@@ -432,22 +436,47 @@ pub fn bpf_map__fd<T, U>(bpf_map: &BpfMap) -> Result<BpfMapFd<T, U>, Error> {
     })
 }
 
-fn path_to_str(path: &Path) -> Result<&str, Error> {
-    path.to_str().ok_or(Error::InvalidPath)
+#[derive(Debug)]
+#[repr(u32)]
+#[allow(non_camel_case_types)]
+pub enum XdpAction {
+    ABORTED = libbpf::XDP_ABORTED,
+    DROP = libbpf::XDP_DROP,
+    PASS = libbpf::XDP_PASS,
+    TX = libbpf::XDP_TX,
+    REDIRECT = libbpf::XDP_REDIRECT,
 }
 
-fn str_to_cstring(s: &str) -> Result<CString, Error> {
-    let cstring_r = CString::new(s);
-    match cstring_r {
-        Ok(cstring) => Ok(cstring),
-        Err(nul_error) => Err(Error::CStringConversion(nul_error)),
-    }
+#[repr(u32)]
+#[allow(non_camel_case_types)]
+pub enum XdpFlags {
+    UPDATE_IF_NOEXIST = libbpf::XDP_FLAGS_UPDATE_IF_NOEXIST,
+    SKB_MODE = libbpf::XDP_FLAGS_SKB_MODE,
+    DRV_MODE = libbpf::XDP_FLAGS_DRV_MODE,
+    HW_MODE = libbpf::XDP_FLAGS_HW_MODE,
+    MODES = libbpf::XDP_FLAGS_MODES,
+    MASK = libbpf::XDP_FLAGS_MASK,
 }
 
-fn c_char_pointer_to_string(c_char_p: *const raw::c_char) -> Result<String, Error> {
-    let cs = unsafe { CStr::from_ptr(c_char_p) };
-    match cs.to_str() {
-        Ok(s) => Ok(String::from(s)),
-        Err(e) => Err(Error::CCharConversion(e)),
+#[repr(transparent)]
+pub struct XdpMd(libbpf::xdp_md);
+
+#[named]
+pub fn bpf_set_link_xdp_fd(interface: &interface::Interface, bpf_fd: Option<&BpfProgFd>, xdp_flags: &[XdpFlags]) -> Result<(), Error> {
+    let xdp_flags = xdp_flags.iter().fold(0, |res, f| {
+        return res | unsafe { *((f as *const XdpFlags) as *const u32) };
+    });
+    let err = unsafe {
+        if bpf_fd.is_some() {
+            let bpf_fd = bpf_fd.unwrap();
+            libbpf::bpf_set_link_xdp_fd(interface.ifindex as i32, bpf_fd.fd, xdp_flags)
+        } else {
+            libbpf::bpf_set_link_xdp_fd(interface.ifindex as i32, -1, xdp_flags)
+        }
+    };
+    if err < 0 {
+        return map_libbpf_error(function_name!(), LibbpfError::LibbpfSys(err));
     }
+
+    Ok(())
 }
