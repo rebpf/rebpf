@@ -106,7 +106,7 @@ Success Loading
 - zlib
 
 ## License
-Licensed under GNU Lesser General Public License (LGPL), version 3 https://www.gnu.org/licenses/lgpl-3.0.html
+Licensed under The MIT License (MIT)https://mit-license.org/
 
 ## Examples
 [link](https://github.com/uccidibuti/rebpf/tree/master/examples).
