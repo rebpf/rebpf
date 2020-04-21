@@ -7,8 +7,7 @@ mod common_kern_user;
 
 use common_kern_user::{DataRec, MAX_ENTRIES};
 use rebpf::maps::{Array, Lookup};
-use rebpf::xdp::{XdpAction, XdpMetadata};
-use rebpf::{self, rebpf_macro::sec, LICENSE, VERSION};
+use rebpf::{self, rebpf_macro::sec, LICENSE, VERSION, XdpAction, XdpMd};
 use std::sync::atomic::Ordering::Relaxed;
 
 #[sec("license")]
@@ -21,7 +20,7 @@ pub static _version: u32 = VERSION;
 pub static xdp_stats_map: Array<DataRec> = Array::new(MAX_ENTRIES);
 
 #[sec("xdp_stats1")]
-fn _xdp_stats1_func(_ctx: &XdpMetadata) -> XdpAction {
+fn _xdp_stats1_func(_ctx: &XdpMd) -> XdpAction {
     let key = XdpAction::PASS as u32;
     match unsafe { xdp_stats_map.lookup_mut(&key) } {
         Some(rec) => {

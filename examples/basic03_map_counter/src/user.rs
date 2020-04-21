@@ -4,7 +4,7 @@
 // (c) Lorenzo Vannucci
 
 use clap::{App, Arg};
-use rebpf::{self, error as rebpf_error, interface, xdp};
+use rebpf::{self, error as rebpf_error, interface};
 use std::path::Path;
 use std::sync::atomic::Ordering::Relaxed;
 
@@ -20,13 +20,13 @@ fn load_bpf(
     interface: &interface::Interface,
     bpf_program_path: &Path,
     prog_sec: &str,
-    xdp_flags: &[xdp::XdpFlags],
+    xdp_flags: &[rebpf::XdpFlags],
 ) -> Result<rebpf::BpfObject, rebpf_error::Error> {
     let (bpf_object, _bpf_fd) = rebpf::bpf_prog_load(bpf_program_path, rebpf::BpfProgType::XDP)?;
     let bpf_prog = rebpf::bpf_object__find_program_by_title(&bpf_object, prog_sec)?
-        .ok_or(rebpf_error::Error::InvalidProgSec)?;
+        .ok_or(rebpf_error::Error::InvalidProgName)?;
     let bpf_fd = rebpf::bpf_program__fd(&bpf_prog)?;
-    xdp::bpf_set_link_xdp_fd(&interface, Some(&bpf_fd), &xdp_flags)?;
+    rebpf::bpf_set_link_xdp_fd(&interface, Some(&bpf_fd), &xdp_flags)?;
     let info = rebpf::bpf_obj_get_info_by_fd(&bpf_fd)?;
     println!(
         "Success Loading\n XDP progsec: {}, prog name: {}, id {} on device: {}",
@@ -55,22 +55,22 @@ fn check_map_fd_info<T, U>(
 ) -> Result<rebpf::BpfMapInfo, rebpf_error::Error> {
     let map_info = rebpf::bpf_obj_get_info_by_fd(bpf_map_fd)?;
     if map_expected.type_() as u32 != map_info.type_() as u32 {
-        return Err(rebpf_error::Error::CustomError(
+        return Err(rebpf_error::Error::Custom(
             "Error occured in map key size.".to_string(),
         ));
     }
     if map_expected.key_size() != map_info.key_size() {
-        return Err(rebpf_error::Error::CustomError(
+        return Err(rebpf_error::Error::Custom(
             "Error occured in map key size.".to_string(),
         ));
     }
     if map_expected.max_entries() != map_info.max_entries() {
-        return Err(rebpf_error::Error::CustomError(
+        return Err(rebpf_error::Error::Custom(
             "Error occured in map max entries.".to_string(),
         ));
     }
     if map_expected.value_size() != map_info.value_size() {
-        return Err(rebpf_error::Error::CustomError(
+        return Err(rebpf_error::Error::Custom(
             "Error occured in map value size.".to_string(),
         ));
     }
@@ -80,9 +80,9 @@ fn check_map_fd_info<T, U>(
 
 fn unload_bpf(
     interface: &interface::Interface,
-    xdp_flags: &[xdp::XdpFlags],
+    xdp_flags: &[rebpf::XdpFlags],
 ) -> Result<(), rebpf_error::Error> {
-    xdp::bpf_set_link_xdp_fd(&interface, None, &xdp_flags)?;
+    rebpf::bpf_set_link_xdp_fd(&interface, None, &xdp_flags)?;
     println!("Success Unloading.");
 
     Ok(())
@@ -142,7 +142,7 @@ fn stats_poll(
 ) {
     let mut record = StatsRecord::new();
 
-    let key = xdp::XdpAction::PASS as u32;
+    let key = rebpf::XdpAction::PASS as u32;
     map_collect(bpf_map_fd, map_type, key, &mut record.stats[0]);
     std::thread::sleep(std::time::Duration::from_secs(1));
     loop {
@@ -162,7 +162,7 @@ fn stats_print(stats_rec: &StatsRecord, stats_prev: &StatsRecord) {
     let pps = packets / time.as_secs();
     println!(
         "Action: {:?}, packets: {}, pps: {}, period: {:?}",
-        xdp::XdpAction::PASS,
+        rebpf::XdpAction::PASS,
         packets,
         pps,
         time
@@ -177,7 +177,7 @@ fn run(
     unload_program: bool,
 ) -> Result<(), rebpf_error::Error> {
     let interface = interface::get_interface(interface_name)?;
-    let xdp_flags = vec![xdp::XdpFlags::UPDATE_IF_NOEXIST, xdp::XdpFlags::SKB_MODE];
+    let xdp_flags = vec![rebpf::XdpFlags::UPDATE_IF_NOEXIST, rebpf::XdpFlags::SKB_MODE];
     if unload_program == true {
         return unload_bpf(&interface, &xdp_flags);
     }
