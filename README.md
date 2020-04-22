@@ -113,4 +113,4 @@ Success Loading
 Roadmap is composed from all issues with label "roadmap". If you want contribute to this repo to avoid future conflicts you can describe what are you implementing in a new issue with label "roadmap".
 
 ## License
-Licensed under The MIT License (MIT)https://mit-license.org/
+Licensed under The MIT License (MIT) https://mit-license.org/.

@@ -8,14 +8,7 @@ rebpf is a Rust library built on top of libbpf (no bcc dependency) that allows t
 ## Source code overview
 - All functions and structs that represent a safe wrapper of libbpf are located in [lib.rs](./src/lib.rs) and [helpers.rs](./src/helpers.rs) with the same names of the functions and structs in libbpf (structs names are switched from snake_case to caml_case).
 
-- All functions and structs that represent high level ebpf api are built on top of libbpf safe wrapper. In this moment the only module that contains high level ebpf api is [map.rs](./src/map.rs).
-
-in details this library provides:
-
-- A raw binding of libbpf provide by [libbpf-sys](https://github.com/alexforster/libbpf-sys).
-- A safe wrapper of libbpf (Work in progress).
-- High level ebpf api built on top of libbpf wrapper (Work in progress).
-
+- All functions and structs that represent high level ebpf api are built on top of libbpf safe wrapper. In this moment the only module that contains high level ebpf api is [maps.rs](./src/maps.rs).
 
 ## Usage
 Add to your Cargo.toml:
@@ -38,4 +31,4 @@ To create your first ebpf program with rebpf library you can copy and rename an 
 Roadmap is composed from all issues with label "roadmap". If you want contribute to this repo to avoid future conflicts you can describe what are you implementing in a new issue with label "roadmap".
 
 ## License
-Licensed under The MIT License (MIT)https://mit-license.org/
+Licensed under The MIT License (MIT) https://mit-license.org/.
