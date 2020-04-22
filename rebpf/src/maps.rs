@@ -41,7 +41,7 @@ pub trait Lookup {
 ///
 /// ```
 /// use rebpf::maps::{CpuMap, Redirect};
-/// use rebpf::xdp::{XdpAction, XdpMetadata};
+/// use rebpf::{XdpAction, XdpMd};
 /// use rebpf_macro::sec;
 ///
 /// // Allocate a map to be able to dispatch traffic to the first 8 CPUs of the system.
@@ -49,7 +49,7 @@ pub trait Lookup {
 /// pub static cpu_map: CpuMap = CpuMap::new(8);
 ///
 /// #[sec("xdp_redirect_cpu")]
-/// pub fn redirect_cpu(ctx: &XdpMetadata) -> XdpAction {
+/// pub fn redirect_cpu(ctx: &XdpMd) -> XdpAction {
 ///     // Redirect all traffic to the CPU 2
 ///     cpu_map.redirect(2)
 /// }
@@ -76,7 +76,7 @@ impl Redirect for CpuMap {
 ///
 /// ```
 /// use rebpf::maps::{XskMap, Redirect};
-/// use rebpf::xdp::{XdpAction, XdpMetadata};
+/// use rebpf::{XdpAction, XdpMd};
 /// use rebpf_macro::sec;
 ///
 /// // Allocate a single-slot map to host our only socket.
@@ -85,7 +85,7 @@ impl Redirect for CpuMap {
 /// pub static xsk_map: XskMap = XskMap::new(1);
 ///
 /// #[sec("xdp_redirect_xsk")]
-/// pub fn redirect_xsk(ctx: &XdpMetadata) -> XdpAction {
+/// pub fn redirect_xsk(ctx: &XdpMd) -> XdpAction {
 ///     // Redirect all traffic to the only open socket
 ///     xsk_map.redirect(0)
 /// }
@@ -112,7 +112,7 @@ impl Redirect for XskMap {
 ///
 /// ```
 /// use rebpf::maps::{DevMap, Redirect};
-/// use rebpf::xdp::{XdpAction, XdpMetadata};
+/// use rebpf::{XdpAction, XdpMd};
 /// use rebpf_macro::sec;
 ///
 /// // Allocate a single-slot map to host our port map.
@@ -122,7 +122,7 @@ impl Redirect for XskMap {
 /// pub static dev_map: DevMap = DevMap::new(1);
 ///
 /// #[sec("xdp_redirect_dev")]
-/// pub fn redirect_dev(ctx: &XdpMetadata) -> XdpAction {
+/// pub fn redirect_dev(ctx: &XdpMd) -> XdpAction {
 ///     // Redirect all traffic to the only open socket
 ///     dev_map.redirect(0)
 /// }
@@ -149,7 +149,7 @@ impl Redirect for DevMap {
 ///
 /// ```
 /// use rebpf::maps::{Array, Lookup};
-/// use rebpf::xdp::{XdpAction, XdpMetadata};
+/// use rebpf::{XdpAction, XdpMd};
 /// use rebpf_macro::sec;
 ///
 /// // Allocate a single-slot map to host our port map.
@@ -159,7 +159,7 @@ impl Redirect for DevMap {
 /// pub static array: Array<u32> = Array::new(1);
 ///
 /// #[sec("xdp_potential_drop")]
-/// pub fn redirect_dev(ctx: &XdpMetadata) -> XdpAction {
+/// pub fn redirect_dev(ctx: &XdpMd) -> XdpAction {
 ///     // Redirect all traffic to the only open socket
 ///     let key = 0;
 ///     match unsafe { array.lookup_mut(&key) } {
