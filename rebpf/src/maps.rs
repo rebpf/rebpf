@@ -95,7 +95,7 @@ pub struct XskMap(BpfMapDef<u32, i32>);
 
 impl XskMap {
     pub const fn new(max_entries: u32) -> XskMap {
-        XskMap(BpfMapDef::new(BpfMapType::CPUMAP, max_entries))
+        XskMap(BpfMapDef::new(BpfMapType::XSKMAP, max_entries))
     }
 }
 
