@@ -1,5 +1,5 @@
 This example refers:
-[basic-prog-by-name](https://github.com/xdp-project/xdp-tutorial/tree/master/basic03-map-counter)
+[basic-map-counter](https://github.com/xdp-project/xdp-tutorial/tree/master/basic03-map-counter)
 
 To compile:
 ```

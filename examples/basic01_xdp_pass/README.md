@@ -1,5 +1,5 @@
 This example refers:
-[basic-prog-by-name](https://github.com/xdp-project/xdp-tutorial/tree/master/basic01-xdp-pass)
+[basic-xdp-pass](https://github.com/xdp-project/xdp-tutorial/tree/master/basic01-xdp-pass)
 
 To compile:
 ```
