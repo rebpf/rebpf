@@ -461,6 +461,20 @@ pub enum XdpFlags {
 #[repr(transparent)]
 pub struct XdpMd(libbpf::xdp_md);
 
+impl XdpMd {
+    pub fn data_buffer(&self) -> &[u8] {
+        unsafe {
+            let data_64 = self.0.data as u64;
+            let data_buffer: *const u8 = std::mem::transmute(data_64);
+            let data_buffer_size = (self.0.data_end - self.0.data) as usize;
+            std::slice::from_raw_parts(data_buffer, data_buffer_size)
+        }
+    }
+    pub fn data_meta(&self) -> u32 { self.0.data_meta }
+    pub fn ingress_ifindex(&self) -> u32 { self.0.ingress_ifindex }
+    pub fn rx_queue_index(&self) -> u32 { self.0.rx_queue_index }
+}
+
 #[named]
 pub fn bpf_set_link_xdp_fd(interface: &interface::Interface, bpf_fd: Option<&BpfProgFd>, xdp_flags: &[XdpFlags]) -> Result<(), Error> {
     let xdp_flags = xdp_flags.iter().fold(0, |res, f| {
