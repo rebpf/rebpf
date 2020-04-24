@@ -271,7 +271,8 @@ where
     let info_void_p = to_mut_c_void(&mut info);
     let mut info_len: u32 =
         mem::size_of::<<<T as BpfFd>::BpfInfoType as BpfInfo>::BpfRawInfoType>() as u32;
-    let err = unsafe { libbpf_sys::bpf_obj_get_info_by_fd(bpf_fd.fd(), info_void_p, &mut info_len) };
+    let err =
+        unsafe { libbpf_sys::bpf_obj_get_info_by_fd(bpf_fd.fd(), info_void_p, &mut info_len) };
     if err != 0 {
         return map_libbpf_error(function_name!(), LibbpfError::LibbpfSys(err));
     }
@@ -319,14 +320,33 @@ pub fn bpf_map_lookup_elem<T, U>(map_fd: &BpfMapFd<T, U>, key: &T, value: &mut U
     Some(())
 }
 
+/// Thin wrapper around libbpf's bpf_map_update_elem function.
+pub fn bpf_map_update_elem<T, U>(
+    map_fd: &BpfMapFd<T, U>,
+    key: &T,
+    value: &U,
+    flags: BpfUpdateElemFlags,
+) -> Result<(), Error> {
+    let key = to_const_c_void(key);
+    let value = to_const_c_void(value);
+    match unsafe { libbpf_sys::bpf_map_update_elem(map_fd.fd(), key, value, flags.bits() as u64) } {
+        0 => Ok(()),
+        err => Err(Error::Libbpf(
+            "Map update error".to_owned(),
+            LibbpfError::LibbpfSys(err),
+        )),
+    }
+}
+
 #[allow(non_snake_case)]
 pub fn bpf_object__find_program_by_title(
     bpf_object: &BpfObject,
     title: &str,
 ) -> Result<Option<BpfProgram>, Error> {
     let title_cs: CString = str_to_cstring(title)?;
-    let bpf_program: *mut libbpf_sys::bpf_program =
-        unsafe { libbpf_sys::bpf_object__find_program_by_title(bpf_object.pobj, title_cs.as_ptr()) };
+    let bpf_program: *mut libbpf_sys::bpf_program = unsafe {
+        libbpf_sys::bpf_object__find_program_by_title(bpf_object.pobj, title_cs.as_ptr())
+    };
     if bpf_program.is_null() {
         return Ok(None);
     }
