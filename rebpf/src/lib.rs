@@ -1,23 +1,17 @@
 pub mod error;
-pub mod interface;
 pub mod helpers;
+pub mod interface;
 pub mod maps;
 pub mod utils;
-pub use rebpf_macro;
 pub use libbpf_sys as libbpf;
+pub use rebpf_macro;
 
 use error::{Error, LibbpfError};
+use std::{ffi::CString, marker::PhantomData, mem, os::raw, path::Path, ptr};
 use utils::*;
-use std::{
-    ffi::CString,
-    marker::PhantomData,
-    mem,
-    os::raw,
-    path::Path,
-    ptr,
-};
 
-#[macro_use] extern crate function_name;
+#[macro_use]
+extern crate function_name;
 
 pub const LICENSE: [u8; 4] = ['G' as u8, 'P' as u8, 'L' as u8, '\0' as u8]; //b"GPL\0"
 pub const VERSION: u32 = 0xFFFFFFFE;
@@ -53,12 +47,12 @@ pub enum BpfProgType {
     CGROUP_SOCKOPT = libbpf::BPF_PROG_TYPE_CGROUP_SOCKOPT,
 }
 
-#[repr(u32)]
-#[allow(non_camel_case_types)]
-pub enum BpfUpdateElemType {
-    ANY = libbpf::BPF_ANY,
-    NOEXIST = libbpf::BPF_NOEXIST,
-    EXIST = libbpf::BPF_EXIST,
+bitflags::bitflags! {
+    pub struct BpfUpdateElemFlags: u32 {
+        const ANY = libbpf::BPF_ANY;
+        const NOEXIST = libbpf::BPF_NOEXIST;
+        const EXIST = libbpf::BPF_EXIST;
+    }
 }
 
 #[derive(Debug)]
@@ -447,15 +441,15 @@ pub enum XdpAction {
     REDIRECT = libbpf::XDP_REDIRECT,
 }
 
-#[repr(u32)]
-#[allow(non_camel_case_types)]
-pub enum XdpFlags {
-    UPDATE_IF_NOEXIST = libbpf::XDP_FLAGS_UPDATE_IF_NOEXIST,
-    SKB_MODE = libbpf::XDP_FLAGS_SKB_MODE,
-    DRV_MODE = libbpf::XDP_FLAGS_DRV_MODE,
-    HW_MODE = libbpf::XDP_FLAGS_HW_MODE,
-    MODES = libbpf::XDP_FLAGS_MODES,
-    MASK = libbpf::XDP_FLAGS_MASK,
+bitflags::bitflags! {
+    pub struct XdpFlags: u32 {
+        const UPDATE_IF_NOEXIST = libbpf::XDP_FLAGS_UPDATE_IF_NOEXIST;
+        const SKB_MODE = libbpf::XDP_FLAGS_SKB_MODE;
+        const DRV_MODE = libbpf::XDP_FLAGS_DRV_MODE;
+        const HW_MODE = libbpf::XDP_FLAGS_HW_MODE;
+        const MODES = libbpf::XDP_FLAGS_MODES;
+        const MASK = libbpf::XDP_FLAGS_MASK;
+    }
 }
 
 #[repr(transparent)]
@@ -470,13 +464,23 @@ impl XdpMd {
             std::slice::from_raw_parts(data_buffer, data_buffer_size)
         }
     }
-    pub fn data_meta(&self) -> u32 { self.0.data_meta }
-    pub fn ingress_ifindex(&self) -> u32 { self.0.ingress_ifindex }
-    pub fn rx_queue_index(&self) -> u32 { self.0.rx_queue_index }
+    pub fn data_meta(&self) -> u32 {
+        self.0.data_meta
+    }
+    pub fn ingress_ifindex(&self) -> u32 {
+        self.0.ingress_ifindex
+    }
+    pub fn rx_queue_index(&self) -> u32 {
+        self.0.rx_queue_index
+    }
 }
 
 #[named]
-pub fn bpf_set_link_xdp_fd(interface: &interface::Interface, bpf_fd: Option<&BpfProgFd>, xdp_flags: &[XdpFlags]) -> Result<(), Error> {
+pub fn bpf_set_link_xdp_fd(
+    interface: &interface::Interface,
+    bpf_fd: Option<&BpfProgFd>,
+    xdp_flags: &[XdpFlags],
+) -> Result<(), Error> {
     let xdp_flags = xdp_flags.iter().fold(0, |res, f| {
         return res | unsafe { *((f as *const XdpFlags) as *const u32) };
     });
