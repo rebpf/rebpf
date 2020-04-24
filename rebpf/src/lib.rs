@@ -484,9 +484,9 @@ pub fn bpf_set_link_xdp_fd(
     let err = unsafe {
         if bpf_fd.is_some() {
             let bpf_fd = bpf_fd.unwrap();
-            libbpf::bpf_set_link_xdp_fd(interface.ifindex as i32, bpf_fd.fd, mem::transmute(xdp_flags))
+            libbpf::bpf_set_link_xdp_fd(interface.ifindex as i32, bpf_fd.fd, xdp_flags.bits())
         } else {
-            libbpf::bpf_set_link_xdp_fd(interface.ifindex as i32, -1, mem::transmute(xdp_flags))
+            libbpf::bpf_set_link_xdp_fd(interface.ifindex as i32, -1, xdp_flags.bits())
         }
     };
     if err < 0 {
