@@ -479,17 +479,14 @@ impl XdpMd {
 pub fn bpf_set_link_xdp_fd(
     interface: &interface::Interface,
     bpf_fd: Option<&BpfProgFd>,
-    xdp_flags: &[XdpFlags],
+    xdp_flags: XdpFlags,
 ) -> Result<(), Error> {
-    let xdp_flags = xdp_flags.iter().fold(0, |res, f| {
-        return res | unsafe { *((f as *const XdpFlags) as *const u32) };
-    });
     let err = unsafe {
         if bpf_fd.is_some() {
             let bpf_fd = bpf_fd.unwrap();
-            libbpf::bpf_set_link_xdp_fd(interface.ifindex as i32, bpf_fd.fd, xdp_flags)
+            libbpf::bpf_set_link_xdp_fd(interface.ifindex as i32, bpf_fd.fd, mem::transmute(xdp_flags))
         } else {
-            libbpf::bpf_set_link_xdp_fd(interface.ifindex as i32, -1, xdp_flags)
+            libbpf::bpf_set_link_xdp_fd(interface.ifindex as i32, -1, mem::transmute(xdp_flags))
         }
     };
     if err < 0 {

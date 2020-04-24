@@ -20,13 +20,13 @@ fn load_bpf(
     interface: &interface::Interface,
     bpf_program_path: &Path,
     prog_sec: &str,
-    xdp_flags: &[rebpf::XdpFlags],
+    xdp_flags: rebpf::XdpFlags,
 ) -> Result<rebpf::BpfObject, rebpf_error::Error> {
     let (bpf_object, _bpf_fd) = rebpf::bpf_prog_load(bpf_program_path, rebpf::BpfProgType::XDP)?;
     let bpf_prog = rebpf::bpf_object__find_program_by_title(&bpf_object, prog_sec)?
         .ok_or(rebpf_error::Error::InvalidProgName)?;
     let bpf_fd = rebpf::bpf_program__fd(&bpf_prog)?;
-    rebpf::bpf_set_link_xdp_fd(&interface, Some(&bpf_fd), &xdp_flags)?;
+    rebpf::bpf_set_link_xdp_fd(&interface, Some(&bpf_fd), xdp_flags)?;
     let info = rebpf::bpf_obj_get_info_by_fd(&bpf_fd)?;
     println!(
         "Success Loading\n XDP progsec: {}, prog name: {}, id {} on device: {}",
@@ -80,9 +80,9 @@ fn check_map_fd_info<T, U>(
 
 fn unload_bpf(
     interface: &interface::Interface,
-    xdp_flags: &[rebpf::XdpFlags],
+    xdp_flags: rebpf::XdpFlags,
 ) -> Result<(), rebpf_error::Error> {
-    rebpf::bpf_set_link_xdp_fd(&interface, None, &xdp_flags)?;
+    rebpf::bpf_set_link_xdp_fd(&interface, None, xdp_flags)?;
     println!("Success Unloading.");
 
     Ok(())
@@ -177,11 +177,11 @@ fn run(
     unload_program: bool,
 ) -> Result<(), rebpf_error::Error> {
     let interface = interface::get_interface(interface_name)?;
-    let xdp_flags = vec![rebpf::XdpFlags::UPDATE_IF_NOEXIST, rebpf::XdpFlags::SKB_MODE];
+    let xdp_flags = rebpf::XdpFlags::UPDATE_IF_NOEXIST | rebpf::XdpFlags::SKB_MODE;
     if unload_program == true {
-        return unload_bpf(&interface, &xdp_flags);
+        return unload_bpf(&interface, xdp_flags);
     }
-    let bpf_object = load_bpf(&interface, bpf_program_path, prog_sec, &xdp_flags)?;
+    let bpf_object = load_bpf(&interface, bpf_program_path, prog_sec, xdp_flags)?;
     let stats_map_fd = find_map_by_fd::<u32, DataRec>(&bpf_object, map_name)?;
     let map_expect = rebpf::BpfMapDef::<u32, DataRec>::new(rebpf::BpfMapType::ARRAY, MAX_ENTRIES)
         .to_bpf_map_info();
