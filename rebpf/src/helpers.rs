@@ -1,16 +1,19 @@
-use libbpf_sys as libbpf;
 use crate::{
-    BpfMapDef, BpfUpdateElemType, XdpAction,
     error::{Error, LibbpfError},
-    utils::*
+    utils::*,
+    BpfMapDef, BpfUpdateElemFlags, XdpAction,
 };
+use libbpf_sys as libbpf;
 use std::{
     mem,
     option::Option,
     os::raw::{c_int, c_void},
 };
 
-pub fn bpf_map_lookup_elem<'a, 'b, T, U>(map: &'a BpfMapDef<T, U>, key: &'b T) -> Option<&'a mut U> {
+pub fn bpf_map_lookup_elem<'a, 'b, T, U>(
+    map: &'a BpfMapDef<T, U>,
+    key: &'b T,
+) -> Option<&'a mut U> {
     type FPtrType = extern "C" fn(m: *const c_void, k: *const c_void) -> *mut c_void;
     unsafe {
         let f: FPtrType = mem::transmute(libbpf::BPF_FUNC_map_lookup_elem as usize);
@@ -28,7 +31,7 @@ pub fn bpf_map_update_elem<'a, 'b, T, U>(
     map: &'a mut BpfMapDef<T, U>,
     key: &'b T,
     value: &'a U,
-    flags: BpfUpdateElemType,
+    flags: BpfUpdateElemFlags,
 ) -> Result<(), Error> {
     type FPtrType =
         extern "C" fn(m: *mut c_void, k: *const c_void, v: *const c_void, f: u64) -> c_int;
@@ -38,13 +41,13 @@ pub fn bpf_map_update_elem<'a, 'b, T, U>(
             to_mut_c_void(&mut map.map_def),
             to_const_c_void(key),
             to_const_c_void(value),
-            flags as u64,
+            flags.bits() as u64,
         )
     };
     if r < 0 {
         return map_libbpf_error(function_name!(), LibbpfError::LibbpfSys(r));
 
-//        return Err(Error::BpfMapUpdateElem(r));
+        //        return Err(Error::BpfMapUpdateElem(r));
     }
     Ok(())
 }
@@ -76,4 +79,3 @@ pub fn bpf_redirect_map<'a, 'b, U>(
         mem::transmute::<i32, XdpAction>(r)
     }
 }
-
