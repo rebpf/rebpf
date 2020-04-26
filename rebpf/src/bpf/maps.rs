@@ -1,7 +1,6 @@
 use crate::{
     helpers::{bpf_map_lookup_elem, bpf_redirect_map},
-    XdpAction,
-    BpfMapDef, BpfMapType,
+    libbpf::{XdpAction, BpfMapDef, BpfMapType},
 };
 
 /// This module contains type-safe abstractions around some of various maps that the BPF VM uses to

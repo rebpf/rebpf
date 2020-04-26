@@ -4,7 +4,12 @@
 // (c) Lorenzo Vannucci
 
 #![no_std]
-use rebpf::{XdpAction, XdpMd, LICENSE, VERSION, rebpf_macro::sec};
+use rebpf::{
+    LICENSE,
+    VERSION,
+    libbpf::{XdpAction, XdpMd},
+    rebpf_macro::sec,
+};
 
 #[sec("license")]
 pub static _license: [u8; 4] = LICENSE;

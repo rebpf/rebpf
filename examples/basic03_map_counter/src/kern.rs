@@ -6,8 +6,13 @@
 mod common_kern_user;
 
 use common_kern_user::{DataRec, MAX_ENTRIES};
-use rebpf::maps::{Array, Lookup};
-use rebpf::{self, rebpf_macro::sec, LICENSE, VERSION, XdpAction, XdpMd};
+use rebpf::{
+    LICENSE,
+    VERSION,
+    rebpf_macro::sec,
+    libbpf::{XdpAction, XdpMd},
+    bpf::maps::{Array, Lookup},
+};
 use std::sync::atomic::Ordering::Relaxed;
 
 #[sec("license")]

@@ -4,7 +4,7 @@
 // (c) Lorenzo Vannucci
 
 use clap::{App, Arg};
-use rebpf::{self, error as rebpf_error, interface};
+use rebpf::{libbpf, error as rebpf_error, interface};
 use std::path::Path;
 use std::sync::atomic::Ordering::Relaxed;
 
@@ -20,14 +20,14 @@ fn load_bpf(
     interface: &interface::Interface,
     bpf_program_path: &Path,
     prog_sec: &str,
-    xdp_flags: rebpf::XdpFlags,
-) -> Result<rebpf::BpfObject, rebpf_error::Error> {
-    let (bpf_object, _bpf_fd) = rebpf::bpf_prog_load(bpf_program_path, rebpf::BpfProgType::XDP)?;
-    let bpf_prog = rebpf::bpf_object__find_program_by_title(&bpf_object, prog_sec)?
+    xdp_flags: libbpf::XdpFlags,
+) -> Result<libbpf::BpfObject, rebpf_error::Error> {
+    let (bpf_object, _bpf_fd) = libbpf::bpf_prog_load(bpf_program_path, libbpf::BpfProgType::XDP)?;
+    let bpf_prog = libbpf::bpf_object__find_program_by_title(&bpf_object, prog_sec)?
         .ok_or(rebpf_error::Error::InvalidProgName)?;
-    let bpf_fd = rebpf::bpf_program__fd(&bpf_prog)?;
-    rebpf::bpf_set_link_xdp_fd(&interface, Some(&bpf_fd), xdp_flags)?;
-    let info = rebpf::bpf_obj_get_info_by_fd(&bpf_fd)?;
+    let bpf_fd = libbpf::bpf_program__fd(&bpf_prog)?;
+    libbpf::bpf_set_link_xdp_fd(&interface, Some(&bpf_fd), xdp_flags)?;
+    let info = libbpf::bpf_obj_get_info_by_fd(&bpf_fd)?;
     println!(
         "Success Loading\n XDP progsec: {}, prog name: {}, id {} on device: {}",
         prog_sec,
@@ -40,20 +40,20 @@ fn load_bpf(
 }
 
 fn find_map_by_fd<T, U>(
-    bpf_object: &rebpf::BpfObject,
+    bpf_object: &libbpf::BpfObject,
     map_name: &str,
-) -> Result<rebpf::BpfMapFd<T, U>, rebpf_error::Error> {
-    let bpf_map = rebpf::bpf_object__find_map_by_name(bpf_object, map_name)?
+) -> Result<libbpf::BpfMapFd<T, U>, rebpf_error::Error> {
+    let bpf_map = libbpf::bpf_object__find_map_by_name(bpf_object, map_name)?
         .ok_or(rebpf_error::Error::InvalidMapName)?;
 
-    rebpf::bpf_map__fd(&bpf_map)
+    libbpf::bpf_map__fd(&bpf_map)
 }
 
 fn check_map_fd_info<T, U>(
-    bpf_map_fd: &rebpf::BpfMapFd<T, U>,
-    map_expected: &rebpf::BpfMapInfo,
-) -> Result<rebpf::BpfMapInfo, rebpf_error::Error> {
-    let map_info = rebpf::bpf_obj_get_info_by_fd(bpf_map_fd)?;
+    bpf_map_fd: &libbpf::BpfMapFd<T, U>,
+    map_expected: &libbpf::BpfMapInfo,
+) -> Result<libbpf::BpfMapInfo, rebpf_error::Error> {
+    let map_info = libbpf::bpf_obj_get_info_by_fd(bpf_map_fd)?;
     if map_expected.type_() as u32 != map_info.type_() as u32 {
         return Err(rebpf_error::Error::Custom(
             "Error occured in map key size.".to_string(),
@@ -80,9 +80,9 @@ fn check_map_fd_info<T, U>(
 
 fn unload_bpf(
     interface: &interface::Interface,
-    xdp_flags: rebpf::XdpFlags,
+    xdp_flags: libbpf::XdpFlags,
 ) -> Result<(), rebpf_error::Error> {
-    rebpf::bpf_set_link_xdp_fd(&interface, None, xdp_flags)?;
+    libbpf::bpf_set_link_xdp_fd(&interface, None, xdp_flags)?;
     println!("Success Unloading.");
 
     Ok(())
@@ -117,8 +117,8 @@ impl StatsRecord {
 }
 
 fn map_collect(
-    bpf_map_fd: &rebpf::BpfMapFd<u32, DataRec>,
-    map_type: &rebpf::BpfMapType,
+    bpf_map_fd: &libbpf::BpfMapFd<u32, DataRec>,
+    map_type: &libbpf::BpfMapType,
     key: u32,
     rec: &mut Record,
 ) {
@@ -126,8 +126,8 @@ fn map_collect(
     rec.timestamp = std::time::Instant::now();
 
     match map_type {
-        rebpf::BpfMapType::ARRAY => {
-            if rebpf::bpf_map_lookup_elem(bpf_map_fd, &key, &mut value).is_some() {
+        libbpf::BpfMapType::ARRAY => {
+            if libbpf::bpf_map_lookup_elem(bpf_map_fd, &key, &mut value).is_some() {
                 rec.total.rx_packets = value.rx_packets;
             }
         }
@@ -136,13 +136,13 @@ fn map_collect(
 }
 
 fn stats_poll(
-    bpf_map_fd: &rebpf::BpfMapFd<u32, DataRec>,
-    map_type: &rebpf::BpfMapType,
+    bpf_map_fd: &libbpf::BpfMapFd<u32, DataRec>,
+    map_type: &libbpf::BpfMapType,
     interval: u64,
 ) {
     let mut record = StatsRecord::new();
 
-    let key = rebpf::XdpAction::PASS as u32;
+    let key = libbpf::XdpAction::PASS as u32;
     map_collect(bpf_map_fd, map_type, key, &mut record.stats[0]);
     std::thread::sleep(std::time::Duration::from_secs(1));
     loop {
@@ -162,7 +162,7 @@ fn stats_print(stats_rec: &StatsRecord, stats_prev: &StatsRecord) {
     let pps = packets / time.as_secs();
     println!(
         "Action: {:?}, packets: {}, pps: {}, period: {:?}",
-        rebpf::XdpAction::PASS,
+        libbpf::XdpAction::PASS,
         packets,
         pps,
         time
@@ -177,13 +177,13 @@ fn run(
     unload_program: bool,
 ) -> Result<(), rebpf_error::Error> {
     let interface = interface::get_interface(interface_name)?;
-    let xdp_flags = rebpf::XdpFlags::UPDATE_IF_NOEXIST | rebpf::XdpFlags::SKB_MODE;
+    let xdp_flags = libbpf::XdpFlags::UPDATE_IF_NOEXIST | libbpf::XdpFlags::SKB_MODE;
     if unload_program == true {
         return unload_bpf(&interface, xdp_flags);
     }
     let bpf_object = load_bpf(&interface, bpf_program_path, prog_sec, xdp_flags)?;
     let stats_map_fd = find_map_by_fd::<u32, DataRec>(&bpf_object, map_name)?;
-    let map_expect = rebpf::BpfMapDef::<u32, DataRec>::new(rebpf::BpfMapType::ARRAY, MAX_ENTRIES)
+    let map_expect = libbpf::BpfMapDef::<u32, DataRec>::new(libbpf::BpfMapType::ARRAY, MAX_ENTRIES)
         .to_bpf_map_info();
     let map_info = check_map_fd_info(&stats_map_fd, &map_expect)?;
     println!("\nCollecting stats from BPF map");

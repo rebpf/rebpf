@@ -1,7 +1,7 @@
 use crate::{
     error::{Error, LibbpfError},
     utils::*,
-    BpfMapDef, BpfUpdateElemFlags, XdpAction,
+    libbpf::{BpfMapDef, BpfUpdateElemFlags, XdpAction},
 };
 use libbpf_sys as libbpf;
 use std::{
