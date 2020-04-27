@@ -7,6 +7,23 @@ use crate::{
 /// communicate with userspace. As the capabilities of the maps vary greatly, most of their
 /// behaviour is exposed via specific traits.
 
+macro_rules! impl_map {
+    ($map_def:ident < $($g:ident),* >, $map_type:expr) => {
+        impl<$($g),*> $map_def<$($g),*> {
+            map_new!($map_def < $($g),* >, $map_type);
+        }
+    }
+}
+
+macro_rules! map_new {
+    ($map_def:ident < $($g:ident),* >, $map_type:expr) => {
+        pub const fn new(max_entries: u32) -> $map_def<$($g),*> {
+            $map_def(BpfMapDef::new($map_type, max_entries))
+        }
+    }    
+}
+
+
 /// This trait represents the ability for a map to specify an XDP redirection, whether to a network
 /// device, a CPU, or a socket.
 pub trait Redirect {
@@ -16,7 +33,16 @@ pub trait Redirect {
     }
 }
 
-/// This trait represents the ability to query a map for its content.
+macro_rules! impl_map_redirect {
+    ($map_def:ident < $($g:ident),* >) => {
+        impl<$($g),*> Redirect for $map_def<$($g),*> {
+            fn redirect_or(&self, target: u32, default_action: XdpAction) -> XdpAction {
+                bpf_redirect_map(&self.0, &target, default_action)
+            }
+        }
+    }
+}
+
 pub trait Lookup {
     type Key;
     type Value;
@@ -32,6 +58,20 @@ pub trait Lookup {
     /// for reference.
     unsafe fn lookup_mut<'a>(&'a self, key: &Self::Key) -> Option<&'a mut Self::Value>;
 }
+
+/// macro to impl Lookup trait.
+macro_rules! impl_map_lookup {
+    ($map_def:ident < $($g:ident),* >, $key:ty, $value:ty) => {
+        impl<$($g),*> Lookup for $map_def<$($g),*> {
+            type Key = $key;
+            type Value = $value;
+            unsafe fn lookup_mut<'a>(&'a self, key: &Self::Key) -> Option<&'a mut Self::Value> {
+                bpf_map_lookup_elem(&self.0, key)
+            }            
+        }
+    }
+}
+
 
 /// A map dedicated to redirecting packet processing to given CPUs, as
 /// part of an XDP BPF program.
@@ -56,17 +96,8 @@ pub trait Lookup {
 #[repr(transparent)]
 pub struct CpuMap(BpfMapDef<u32, i32>);
 
-impl CpuMap {
-    pub const fn new(max_entries: u32) -> CpuMap {
-        CpuMap(BpfMapDef::new(BpfMapType::CPUMAP, max_entries))
-    }
-}
-
-impl Redirect for CpuMap {
-    fn redirect_or(&self, target: u32, default_action: XdpAction) -> XdpAction {
-        bpf_redirect_map(&self.0, &target, default_action)
-    }
-}
+impl_map!(CpuMap<>, BpfMapType::CPUMAP);
+impl_map_redirect!(CpuMap<>);
 
 /// A map dedicated to redirecting packet processing to userspace AF_XDP sockets
 /// as part of an XDP BPF program.
@@ -92,17 +123,8 @@ impl Redirect for CpuMap {
 #[repr(transparent)]
 pub struct XskMap(BpfMapDef<u32, i32>);
 
-impl XskMap {
-    pub const fn new(max_entries: u32) -> XskMap {
-        XskMap(BpfMapDef::new(BpfMapType::XSKMAP, max_entries))
-    }
-}
-
-impl Redirect for XskMap {
-    fn redirect_or(&self, target: u32, default_action: XdpAction) -> XdpAction {
-        bpf_redirect_map(&self.0, &target, default_action)
-    }
-}
+impl_map!(XskMap<>, BpfMapType::CPUMAP);
+impl_map_redirect!(XskMap<>);
 
 /// A map dedicated to redirecting packet processing to other network devices
 /// as part of an XDP BPF program.
@@ -129,17 +151,8 @@ impl Redirect for XskMap {
 #[repr(transparent)]
 pub struct DevMap(BpfMapDef<u32, i32>);
 
-impl DevMap {
-    pub const fn new(max_entries: u32) -> DevMap {
-        DevMap(BpfMapDef::new(BpfMapType::CPUMAP, max_entries))
-    }
-}
-
-impl Redirect for DevMap {
-    fn redirect_or(&self, target: u32, default_action: XdpAction) -> XdpAction {
-        bpf_redirect_map(&self.0, &target, default_action)
-    }
-}
+impl_map!(DevMap<>, BpfMapType::CPUMAP);
+impl_map_redirect!(DevMap<>);
 
 /// A map dedicated to redirecting packet processing to other network devices
 /// as part of an XDP BPF program.
@@ -171,16 +184,12 @@ impl Redirect for DevMap {
 #[repr(transparent)]
 pub struct Array<T>(BpfMapDef<u32, T>);
 
-impl<T> Array<T> {
-    pub const fn new(max_entries: u32) -> Array<T> {
-        Array(BpfMapDef::new(BpfMapType::ARRAY, max_entries))
-    }
-}
+impl_map!(Array<T>, BpfMapType::ARRAY);
+impl_map_lookup!(Array<T>, u32, T);
 
-impl<T> Lookup for Array<T> {
-    type Key = u32;
-    type Value = T;
-    unsafe fn lookup_mut<'a>(&'a self, key: &Self::Key) -> Option<&'a mut Self::Value> {
-        bpf_map_lookup_elem(&self.0, key)
-    }
-}
+/// This map represent a faster array maintained on a per-CPU basis.
+#[repr(transparent)]
+pub struct PerCpuArray<T>(BpfMapDef<u32, T>);
+
+impl_map!(PerCpuArray<T>, BpfMapType::PERCPU_ARRAY);
+impl_map_lookup!(PerCpuArray<T>, u32, T);
