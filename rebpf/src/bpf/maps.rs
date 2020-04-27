@@ -123,7 +123,7 @@ impl_map_redirect!(CpuMap<>);
 #[repr(transparent)]
 pub struct XskMap(BpfMapDef<u32, i32>);
 
-impl_map!(XskMap<>, BpfMapType::CPUMAP);
+impl_map!(XskMap<>, BpfMapType::XSKMAP);
 impl_map_redirect!(XskMap<>);
 
 /// A map dedicated to redirecting packet processing to other network devices
@@ -151,7 +151,7 @@ impl_map_redirect!(XskMap<>);
 #[repr(transparent)]
 pub struct DevMap(BpfMapDef<u32, i32>);
 
-impl_map!(DevMap<>, BpfMapType::CPUMAP);
+impl_map!(DevMap<>, BpfMapType::DEVMAP);
 impl_map_redirect!(DevMap<>);
 
 /// A map dedicated to redirecting packet processing to other network devices
