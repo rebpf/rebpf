@@ -1,6 +1,7 @@
 use crate::{
     helpers::{bpf_map_lookup_elem, bpf_redirect_map},
-    libbpf::{XdpAction, BpfMapDef, BpfMapType},
+    libbpf::{BpfMapDef, BpfMapType, XdpAction},
+    maps::*,
 };
 
 /// This module contains type-safe abstractions around some of various maps that the BPF VM uses to
@@ -20,9 +21,8 @@ macro_rules! map_new {
         pub const fn new(max_entries: u32) -> $map_def<$($g),*> {
             $map_def(BpfMapDef::new($map_type, max_entries))
         }
-    }    
+    }
 }
-
 
 /// This trait represents the ability for a map to specify an XDP redirection, whether to a network
 /// device, a CPU, or a socket.
@@ -33,17 +33,7 @@ pub trait Redirect {
     }
 }
 
-macro_rules! impl_map_redirect {
-    ($map_def:ident < $($g:ident),* >) => {
-        impl<$($g),*> Redirect for $map_def<$($g),*> {
-            fn redirect_or(&self, target: u32, default_action: XdpAction) -> XdpAction {
-                bpf_redirect_map(&self.0, &target, default_action)
-            }
-        }
-    }
-}
-
-pub trait Lookup {
+pub trait LookupMut {
     type Key;
     type Value;
     /// Lookup the map content associated with the given key.
@@ -59,19 +49,28 @@ pub trait Lookup {
     unsafe fn lookup_mut<'a>(&'a self, key: &Self::Key) -> Option<&'a mut Self::Value>;
 }
 
+macro_rules! impl_map_redirect {
+    ($map_def:ident < $($g:ident),* >) => {
+        impl<$($g),*> Redirect for $map_def<$($g),*> {
+            fn redirect_or(&self, target: u32, default_action: XdpAction) -> XdpAction {
+                bpf_redirect_map(&self.0, &target, default_action)
+            }
+        }
+    };
+}
+
 /// macro to impl Lookup trait.
-macro_rules! impl_map_lookup {
+macro_rules! impl_map_lookup_mut {
     ($map_def:ident < $($g:ident),* >, $key:ty, $value:ty) => {
-        impl<$($g),*> Lookup for $map_def<$($g),*> {
+        impl<$($g,)*> LookupMut for $map_def<$($g,)*> {
             type Key = $key;
             type Value = $value;
             unsafe fn lookup_mut<'a>(&'a self, key: &Self::Key) -> Option<&'a mut Self::Value> {
                 bpf_map_lookup_elem(&self.0, key)
-            }            
+            }
         }
     }
 }
-
 
 /// A map dedicated to redirecting packet processing to given CPUs, as
 /// part of an XDP BPF program.
@@ -185,11 +184,11 @@ impl_map_redirect!(DevMap<>);
 pub struct Array<T>(BpfMapDef<u32, T>);
 
 impl_map!(Array<T>, BpfMapType::ARRAY);
-impl_map_lookup!(Array<T>, u32, T);
+impl_map_lookup_mut!(Array<T>, u32, T);
 
 /// This map represent a faster array maintained on a per-CPU basis.
 #[repr(transparent)]
 pub struct PerCpuArray<T>(BpfMapDef<u32, T>);
 
 impl_map!(PerCpuArray<T>, BpfMapType::PERCPU_ARRAY);
-impl_map_lookup!(PerCpuArray<T>, u32, T);
+impl_map_lookup_mut!(PerCpuArray<T>, u32, T);

@@ -11,7 +11,7 @@ use rebpf::{
     VERSION,
     rebpf_macro::sec,
     libbpf::{XdpAction, XdpMd},
-    bpf::maps::{Array, Lookup},
+    bpf::maps::{Array, LookupMut},
 };
 use std::sync::atomic::Ordering::Relaxed;
 
