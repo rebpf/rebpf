@@ -1,5 +1,7 @@
+pub type Result<T> = std::result::Result<T, Error>;
+
 #[derive(Debug)]
-pub enum Error {    
+pub enum Error {
     Libbpf(String, LibbpfError),
     Generic(GenericError),
     InvalidProgName,
@@ -12,7 +14,7 @@ pub enum GenericError {
     CStringConversion(std::ffi::NulError),
     CCharConversion(std::str::Utf8Error),
     InvalidPath,
-    InvalidInterfaceName(String)
+    InvalidInterfaceName(String),
 }
 
 #[derive(Debug)]

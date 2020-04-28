@@ -5,9 +5,10 @@
 
 use std::sync::atomic::AtomicU64;
 
+#[derive(Default)]
 #[repr(C)]
 pub struct DataRec {
-    pub rx_packets: AtomicU64
+    pub rx_packets: AtomicU64,
 }
 
 pub const MAX_ENTRIES: u32 = 5;

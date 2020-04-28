@@ -1,5 +1,5 @@
 use crate::{
-    error::{Error, LibbpfError},
+    error::{Error, LibbpfError, Result},
     interface,
     utils::*,
 };
@@ -45,7 +45,7 @@ bitflags::bitflags! {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 #[repr(u32)]
 #[allow(non_camel_case_types)]
 pub enum BpfMapType {
@@ -169,7 +169,7 @@ impl BpfProgInfo {
     }
 
     #[named]
-    pub fn name(&self) -> Result<String, Error> {
+    pub fn name(&self) -> Result<String> {
         let name = &self.info.name;
         c_char_pointer_to_string(name.as_ptr())
     }
@@ -256,14 +256,21 @@ impl BpfMapInfo {
         map_type
     }
 
-    pub fn name(&self) -> Result<String, Error> {
+    pub fn name(&self) -> Result<String> {
         let name = &self.info.name;
         c_char_pointer_to_string(name.as_ptr())
+    }
+
+    pub fn matches_map_def<K, V>(&self, map_def: &BpfMapDef<K, V>) -> bool {
+        let other = map_def.to_bpf_map_info();
+        return self.value_size() == other.value_size()
+            && self.key_size() == other.key_size()
+            && self.type_() == other.type_();
     }
 }
 
 #[named]
-pub fn bpf_obj_get_info_by_fd<T: BpfFd>(bpf_fd: &T) -> Result<T::BpfInfoType, Error>
+pub fn bpf_obj_get_info_by_fd<T: BpfFd>(bpf_fd: &T) -> Result<T::BpfInfoType>
 where
     T::BpfInfoType: BpfInfo,
 {
@@ -271,7 +278,8 @@ where
     let info_void_p = to_mut_c_void(&mut info);
     let mut info_len: u32 =
         mem::size_of::<<<T as BpfFd>::BpfInfoType as BpfInfo>::BpfRawInfoType>() as u32;
-    let err = unsafe { libbpf_sys::bpf_obj_get_info_by_fd(bpf_fd.fd(), info_void_p, &mut info_len) };
+    let err =
+        unsafe { libbpf_sys::bpf_obj_get_info_by_fd(bpf_fd.fd(), info_void_p, &mut info_len) };
     if err != 0 {
         return map_libbpf_error(function_name!(), LibbpfError::LibbpfSys(err));
     }
@@ -283,7 +291,7 @@ where
 pub fn bpf_prog_load(
     file_path: &Path,
     bpf_prog_type: BpfProgType,
-) -> Result<(BpfObject, BpfProgFd), Error> {
+) -> Result<(BpfObject, BpfProgFd)> {
     let mut pobj: *mut libbpf_sys::bpf_object = ptr::null_mut();
     let mut prog_fd: raw::c_int = -1;
 
@@ -319,14 +327,33 @@ pub fn bpf_map_lookup_elem<T, U>(map_fd: &BpfMapFd<T, U>, key: &T, value: &mut U
     Some(())
 }
 
+/// Thin wrapper around libbpf's bpf_map_update_elem function.
+pub fn bpf_map_update_elem<T, U>(
+    map_fd: &BpfMapFd<T, U>,
+    key: &T,
+    value: &U,
+    flags: BpfUpdateElemFlags,
+) -> Result<()> {
+    let key = to_const_c_void(key);
+    let value = to_const_c_void(value);
+    match unsafe { libbpf_sys::bpf_map_update_elem(map_fd.fd(), key, value, flags.bits() as u64) } {
+        0 => Ok(()),
+        err => Err(Error::Libbpf(
+            "Map update error".to_owned(),
+            LibbpfError::LibbpfSys(err),
+        )),
+    }
+}
+
 #[allow(non_snake_case)]
 pub fn bpf_object__find_program_by_title(
     bpf_object: &BpfObject,
     title: &str,
-) -> Result<Option<BpfProgram>, Error> {
+) -> Result<Option<BpfProgram>> {
     let title_cs: CString = str_to_cstring(title)?;
-    let bpf_program: *mut libbpf_sys::bpf_program =
-        unsafe { libbpf_sys::bpf_object__find_program_by_title(bpf_object.pobj, title_cs.as_ptr()) };
+    let bpf_program: *mut libbpf_sys::bpf_program = unsafe {
+        libbpf_sys::bpf_object__find_program_by_title(bpf_object.pobj, title_cs.as_ptr())
+    };
     if bpf_program.is_null() {
         return Ok(None);
     }
@@ -336,17 +363,14 @@ pub fn bpf_object__find_program_by_title(
 }
 
 #[allow(non_snake_case)]
-pub fn bpf_object__find_map_by_name(
-    bpf_object: &BpfObject,
-    name: &str,
-) -> Result<Option<BpfMap>, Error> {
+pub fn bpf_object__find_map_by_name(bpf_object: &BpfObject, name: &str) -> Result<BpfMap> {
     let name_cs = str_to_cstring(name)?;
     let bpf_map =
         unsafe { libbpf_sys::bpf_object__find_map_by_name(bpf_object.pobj, name_cs.as_ptr()) };
     if bpf_map.is_null() {
-        return Ok(None);
+        return Err(Error::InvalidMapName);
     }
-    Ok(Some(BpfMap { pmap: bpf_map }))
+    Ok(BpfMap { pmap: bpf_map })
 }
 
 #[allow(non_snake_case)]
@@ -382,7 +406,7 @@ pub fn bpf_program__next(
 
 #[allow(non_snake_case)]
 #[named]
-pub fn bpf_program__fd(bpf_program: &BpfProgram) -> Result<BpfProgFd, Error> {
+pub fn bpf_program__fd(bpf_program: &BpfProgram) -> Result<BpfProgFd> {
     let prog_fd = unsafe { libbpf_sys::bpf_program__fd(bpf_program.pprogram) };
     if prog_fd < 0 {
         return map_libbpf_error(function_name!(), LibbpfError::InvalidFd);
@@ -395,7 +419,7 @@ pub fn bpf_program__fd(bpf_program: &BpfProgram) -> Result<BpfProgFd, Error> {
 
 #[allow(non_snake_case)]
 #[named]
-pub fn bpf_program__title(bpf_program: &BpfProgram) -> Result<String, Error> {
+pub fn bpf_program__title(bpf_program: &BpfProgram) -> Result<String> {
     let title_c_char_p = unsafe { libbpf_sys::bpf_program__title(bpf_program.pprogram, false) };
     if title_c_char_p.is_null() {
         return map_libbpf_error(function_name!(), LibbpfError::InvalidTitle);
@@ -405,7 +429,7 @@ pub fn bpf_program__title(bpf_program: &BpfProgram) -> Result<String, Error> {
 
 #[allow(non_snake_case)]
 #[named]
-pub fn bpf_map__fd<T, U>(bpf_map: &BpfMap) -> Result<BpfMapFd<T, U>, Error> {
+pub fn bpf_map__fd<T, U>(bpf_map: &BpfMap) -> Result<BpfMapFd<T, U>> {
     let fd = unsafe { libbpf_sys::bpf_map__fd(bpf_map.pmap) };
     if fd < 0 {
         return map_libbpf_error(function_name!(), LibbpfError::InvalidFd);
@@ -470,7 +494,7 @@ pub fn bpf_set_link_xdp_fd(
     interface: &interface::Interface,
     bpf_fd: Option<&BpfProgFd>,
     xdp_flags: XdpFlags,
-) -> Result<(), Error> {
+) -> Result<()> {
     let err = unsafe {
         if bpf_fd.is_some() {
             let bpf_fd = bpf_fd.unwrap();
