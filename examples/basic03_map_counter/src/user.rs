@@ -4,7 +4,9 @@
 // (c) Lorenzo Vannucci
 
 use clap::{App, Arg};
-use rebpf::{libbpf, error as rebpf_error, interface};
+use rebpf::maps::Lookup;
+use rebpf::userspace::maps::Array;
+use rebpf::{error as rebpf_error, interface, libbpf};
 use std::path::Path;
 use std::sync::atomic::Ordering::Relaxed;
 
@@ -39,44 +41,6 @@ fn load_bpf(
     Ok(bpf_object)
 }
 
-fn find_map_by_fd<T, U>(
-    bpf_object: &libbpf::BpfObject,
-    map_name: &str,
-) -> Result<libbpf::BpfMapFd<T, U>, rebpf_error::Error> {
-    let bpf_map = libbpf::bpf_object__find_map_by_name(bpf_object, map_name)?;
-
-    libbpf::bpf_map__fd(&bpf_map)
-}
-
-fn check_map_fd_info<T, U>(
-    bpf_map_fd: &libbpf::BpfMapFd<T, U>,
-    map_expected: &libbpf::BpfMapInfo,
-) -> Result<libbpf::BpfMapInfo, rebpf_error::Error> {
-    let map_info = libbpf::bpf_obj_get_info_by_fd(bpf_map_fd)?;
-    if map_expected.type_() as u32 != map_info.type_() as u32 {
-        return Err(rebpf_error::Error::Custom(
-            "Error occured in map key size.".to_string(),
-        ));
-    }
-    if map_expected.key_size() != map_info.key_size() {
-        return Err(rebpf_error::Error::Custom(
-            "Error occured in map key size.".to_string(),
-        ));
-    }
-    if map_expected.max_entries() != map_info.max_entries() {
-        return Err(rebpf_error::Error::Custom(
-            "Error occured in map max entries.".to_string(),
-        ));
-    }
-    if map_expected.value_size() != map_info.value_size() {
-        return Err(rebpf_error::Error::Custom(
-            "Error occured in map value size.".to_string(),
-        ));
-    }
-
-    Ok(map_info)
-}
-
 fn unload_bpf(
     interface: &interface::Interface,
     xdp_flags: libbpf::XdpFlags,
@@ -92,70 +56,29 @@ struct Record {
     total: DataRec,
 }
 
-impl Record {
-    fn new() -> Record {
-        Record {
-            timestamp: std::time::Instant::now(),
-            total: DataRec {
-                rx_packets: std::sync::atomic::AtomicU64::new(0),
-            },
-        }
+fn map_collect(bpf_map: &Array<DataRec>, key: u32) -> Record {
+    Record {
+        total: match bpf_map.lookup(&key) {
+            Some(value) => value,
+            _ => unsafe { std::mem::zeroed() },
+        },
+        timestamp: std::time::Instant::now(),
     }
 }
 
-struct StatsRecord {
-    stats: [Record; 1],
-}
-
-impl StatsRecord {
-    fn new() -> StatsRecord {
-        StatsRecord {
-            stats: [Record::new()],
-        }
-    }
-}
-
-fn map_collect(
-    bpf_map_fd: &libbpf::BpfMapFd<u32, DataRec>,
-    map_type: &libbpf::BpfMapType,
-    key: u32,
-    rec: &mut Record,
-) {
-    let mut value: DataRec = unsafe { std::mem::zeroed() };
-    rec.timestamp = std::time::Instant::now();
-
-    match map_type {
-        libbpf::BpfMapType::ARRAY => {
-            if libbpf::bpf_map_lookup_elem(bpf_map_fd, &key, &mut value).is_some() {
-                rec.total.rx_packets = value.rx_packets;
-            }
-        }
-        _ => {}
-    }
-}
-
-fn stats_poll(
-    bpf_map_fd: &libbpf::BpfMapFd<u32, DataRec>,
-    map_type: &libbpf::BpfMapType,
-    interval: u64,
-) {
-    let mut record = StatsRecord::new();
-
+fn stats_poll(bpf_map: &Array<DataRec>, interval: u64) {
     let key = libbpf::XdpAction::PASS as u32;
-    map_collect(bpf_map_fd, map_type, key, &mut record.stats[0]);
+    let mut previous = map_collect(bpf_map, key);
     std::thread::sleep(std::time::Duration::from_secs(1));
     loop {
-        let prev = unsafe { std::mem::transmute_copy(&mut record) };
-        map_collect(bpf_map_fd, map_type, key, &mut record.stats[0]);
-        stats_print(&record, &prev);
+        let mut current = map_collect(bpf_map, key);
+        stats_print(&current, &previous);
+        std::mem::swap(&mut current, &mut previous);
         std::thread::sleep(std::time::Duration::from_secs(interval));
     }
 }
 
-fn stats_print(stats_rec: &StatsRecord, stats_prev: &StatsRecord) {
-    let rec = &stats_rec.stats[0];
-    let prev = &stats_prev.stats[0];
-
+fn stats_print(rec: &Record, prev: &Record) {
     let time = rec.timestamp.duration_since(prev.timestamp);
     let packets = (rec.total.rx_packets.load(Relaxed) - prev.total.rx_packets.load(Relaxed)) as u64;
     let pps = packets / time.as_secs();
@@ -181,10 +104,9 @@ fn run(
         return unload_bpf(&interface, xdp_flags);
     }
     let bpf_object = load_bpf(&interface, bpf_program_path, prog_sec, xdp_flags)?;
-    let stats_map_fd = find_map_by_fd::<u32, DataRec>(&bpf_object, map_name)?;
-    let map_expect = libbpf::BpfMapDef::<u32, DataRec>::new(libbpf::BpfMapType::ARRAY, MAX_ENTRIES)
-        .to_bpf_map_info();
-    let map_info = check_map_fd_info(&stats_map_fd, &map_expect)?;
+    let stats_map = Array::from_obj(&bpf_object, map_name)?;
+    let map_info = stats_map.extract_info()?;
+    assert!(map_info.max_entries() == MAX_ENTRIES);
     println!("\nCollecting stats from BPF map");
     println!(
         "- BPF map (bpf_map_type:{:?}) id:{} name:{} key_size:{}, value_size:{}, max_entries:{}",
@@ -196,7 +118,7 @@ fn run(
         map_info.max_entries()
     );
 
-    stats_poll(&stats_map_fd, &map_info.type_(), 2);
+    stats_poll(&stats_map, 2);
 
     Ok(())
 }
