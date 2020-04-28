@@ -356,17 +356,14 @@ pub fn bpf_object__find_program_by_title(
 }
 
 #[allow(non_snake_case)]
-pub fn bpf_object__find_map_by_name(
-    bpf_object: &BpfObject,
-    name: &str,
-) -> Result<Option<BpfMap>, Error> {
+pub fn bpf_object__find_map_by_name(bpf_object: &BpfObject, name: &str) -> Result<BpfMap, Error> {
     let name_cs = str_to_cstring(name)?;
     let bpf_map =
         unsafe { libbpf_sys::bpf_object__find_map_by_name(bpf_object.pobj, name_cs.as_ptr()) };
     if bpf_map.is_null() {
-        return Ok(None);
+        return Err(Error::InvalidMapName);
     }
-    Ok(Some(BpfMap { pmap: bpf_map }))
+    Ok(BpfMap { pmap: bpf_map })
 }
 
 #[allow(non_snake_case)]

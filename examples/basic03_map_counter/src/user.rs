@@ -43,8 +43,7 @@ fn find_map_by_fd<T, U>(
     bpf_object: &libbpf::BpfObject,
     map_name: &str,
 ) -> Result<libbpf::BpfMapFd<T, U>, rebpf_error::Error> {
-    let bpf_map = libbpf::bpf_object__find_map_by_name(bpf_object, map_name)?
-        .ok_or(rebpf_error::Error::InvalidMapName)?;
+    let bpf_map = libbpf::bpf_object__find_map_by_name(bpf_object, map_name)?;
 
     libbpf::bpf_map__fd(&bpf_map)
 }
