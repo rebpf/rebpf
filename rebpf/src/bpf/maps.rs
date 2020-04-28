@@ -1,7 +1,7 @@
 use crate::{
     error::Result,
-    helpers::{bpf_map_lookup_elem, bpf_redirect_map},
-    libbpf::{BpfMapDef, BpfMapType, XdpAction},
+    helpers::{bpf_map_lookup_elem, bpf_map_update_elem, bpf_redirect_map},
+    libbpf::{BpfMapDef, BpfMapType, BpfUpdateElemFlags, XdpAction},
     maps::*,
 };
 
@@ -95,6 +95,17 @@ macro_rules! impl_map_lookup_mut {
     };
 }
 
+/// macro to impl LookupMut trait.
+macro_rules! impl_map_update {
+    ($map_type:ident < $($gen:ident),* > ) => {
+        impl<$($gen,)*> Update for $map_type<$($gen,)*> {
+            fn update(&mut self, key: &Self::Key, value: &Self::Value, flags: BpfUpdateElemFlags) -> Result<()> {
+                bpf_map_update_elem(&mut self.def, key, value, flags)
+            }
+        }
+    };
+}
+
 map_def! {
     /// A map dedicated to redirecting packet processing to given CPUs, as
     /// part of an XDP BPF program.
@@ -179,6 +190,7 @@ map_def! {
     struct Array<T>: BpfMapType::ARRAY
 }
 impl_map_lookup_mut!(Array<T>);
+impl_map_update!(Array<T>);
 
 map_def! {
     /// This map represent a faster array maintained on a per-CPU basis.
@@ -186,3 +198,4 @@ map_def! {
 }
 
 impl_map_lookup_mut!(PerCpuArray<T>);
+impl_map_update!(PerCpuArray<T>);

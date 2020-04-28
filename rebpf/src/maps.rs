@@ -1,3 +1,6 @@
+use crate::error::Result;
+use crate::libbpf::BpfUpdateElemFlags;
+
 /// This crate contains traits defining common operations on BPF maps that can
 /// be executed both on the userspace side and the BPF side.
 
@@ -14,4 +17,16 @@ pub trait Lookup: Map {
     ///
     /// Note that the return value is a mere copy of said content.
     fn lookup(&self, key: &Self::Key) -> Option<Self::Value>;
+}
+
+pub trait Update: Map {
+    /// Update a value inside the map.
+    ///
+    /// This operation is considered as atomic.
+    fn update<'a>(
+        &'a mut self,
+        key: &Self::Key,
+        value: &Self::Value,
+        flags: BpfUpdateElemFlags,
+    ) -> Result<()>;
 }
