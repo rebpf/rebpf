@@ -102,8 +102,8 @@ map_def! {
     /// Example :
     ///
     /// ```
-    /// use rebpf::maps::{CpuMap, Redirect};
-    /// use rebpf::{XdpAction, XdpMd};
+    /// use rebpf::bpf::maps::{CpuMap, Redirect};
+    /// use rebpf::libbpf::{XdpAction, XdpMd};
     /// use rebpf_macro::sec;
     ///
     /// // Allocate a map to be able to dispatch traffic to the first 8 CPUs of the system.
@@ -128,8 +128,8 @@ map_def! {
     /// Example :
     ///
     /// ```
-    /// use rebpf::maps::{XskMap, Redirect};
-    /// use rebpf::{XdpAction, XdpMd};
+    /// use rebpf::bpf::maps::{XskMap, Redirect};
+    /// use rebpf::libbpf::{XdpAction, XdpMd};
     /// use rebpf_macro::sec;
     ///
     /// // Allocate a single-slot map to host our only socket.
@@ -154,8 +154,8 @@ map_def! {
     /// Example :
     ///
     /// ```
-    /// use rebpf::maps::{DevMap, Redirect};
-    /// use rebpf::{XdpAction, XdpMd};
+    /// use rebpf::bpf::maps::{DevMap, Redirect};
+    /// use rebpf::libbpf::{XdpAction, XdpMd};
     /// use rebpf_macro::sec;
     ///
     /// // Allocate a single-slot map to host our port map.
