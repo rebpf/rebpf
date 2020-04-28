@@ -260,6 +260,13 @@ impl BpfMapInfo {
         let name = &self.info.name;
         c_char_pointer_to_string(name.as_ptr())
     }
+
+    pub fn matches_map_def<K, V>(&self, map_def: &BpfMapDef<K, V>) -> bool {
+        let other = map_def.to_bpf_map_info();
+        return self.value_size() == other.value_size()
+            && self.key_size() == other.key_size()
+            && self.type_() == other.type_();
+    }
 }
 
 #[named]
