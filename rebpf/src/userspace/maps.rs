@@ -25,6 +25,10 @@ fn extract_checked_info<K, V>(map_fd: &BpfMapFd<K, V>, map_type: BpfMapType) -> 
     if info.matches_map_def::<K, V>(&BpfMapDef::new(map_type, 0)) {
         Ok(info)
     } else {
+        // Err(Error::Custom(
+        //     format!("id:{}, value_size:{}, type:{:?}, key_size:{}",
+        //             info.id(), info.value_size(), info.type_(), info.key_size())
+        // ))
         Err(Error::Custom(
             "The wrapper type doesn't match the map object".to_owned(),
         ))
@@ -39,7 +43,7 @@ macro_rules! map_def {
         pub struct $map_type<$key, $value> {
             fd: BpfMapFd<$key, $value>,
         }
-        impl<$key, $value> $map_type<$key, $value> { map_new! {$map_type<$key, $value>: $type_const} }
+        impl<$key, $value> $map_type<$key, $value> { map_impl! {$map_type<$key, $value>: $type_const} }
         impl<$key, $value> Map for $map_type<$key, $value> { type Key = $key; type Value = $value; }
     };
     ($(#[$outer:meta])*
@@ -100,6 +104,10 @@ macro_rules! impl_lookup_gen {
             let mut value: Self::Value = Default::default();
             libbpf::bpf_map_lookup_elem(&self.fd, key, &mut value).map(move |_| value)
         }
+
+        fn lookup_ref(&self, key: &Self::Key, value: &mut Self::Value) -> Option<()> {
+            libbpf::bpf_map_lookup_elem(&self.fd, key, value)
+        }
     };
 }
 
@@ -110,3 +118,38 @@ impl_lookup!(CpuMap);
 map_def!(struct Array<T>: BpfMapType::ARRAY);
 impl_update!(Array<T>);
 impl_lookup!(Array<T>);
+    
+pub struct PerCpuArray<T> {
+    fd: BpfMapFd<u32, T>,
+    num_cpus: usize,
+}
+
+impl<T> Map for PerCpuArray<T> { type Key = u32; type Value = T; }
+
+impl<T> PerCpuArray<T> {
+    pub fn from_obj(bpf_obj: &BpfObject, map_name: &str) -> Result<Self> {
+        let fd = extract_map_fd(bpf_obj, map_name)?;
+        let num_cpus = libbpf::libbpf_num_possible_cpus()? as usize;
+        Ok(Self { fd, num_cpus })
+    }
+    pub fn extract_info(&self) -> Result<BpfMapInfo> {
+        extract_checked_info(&self.fd, BpfMapType::PERCPU_ARRAY)
+    }
+}
+
+impl<T> Lookup<Vec<T>> for PerCpuArray<T> {
+    fn lookup(&self, key: &Self::Key) -> Option<Vec<T>> {
+        let mut values: Vec<T> = Vec::with_capacity(self.num_cpus);
+        for _i in 0..self.num_cpus {
+            values.push(unsafe { std::mem::zeroed() });
+        }
+        libbpf::unsafe_bpf_map_lookup_elem(&self.fd, key, values.as_mut_ptr()).map(move |_| values)
+    }
+
+    fn lookup_ref(&self, key: &Self::Key, value: &mut Vec<T>) -> Option<()> {
+        if value.len() < self.num_cpus {
+            return None;
+        }
+        libbpf::unsafe_bpf_map_lookup_elem(&self.fd, key, value.as_mut_ptr())
+    }
+}

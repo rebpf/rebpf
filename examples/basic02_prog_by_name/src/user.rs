@@ -13,7 +13,7 @@ const DEFAULT_DEV: &str = "wlan0";
 
 fn load_bpf(interface: &interface::Interface, bpf_program_path: &Path, xdp_flags: libbpf::XdpFlags) -> Result<(), rebpf_error::Error> {
     let (bpf_object, _bpf_fd) = libbpf::bpf_prog_load(bpf_program_path, libbpf::BpfProgType::XDP)?;
-    let bpf_prog = libbpf::bpf_object__find_program_by_title(&bpf_object, DEFAULT_PROG_SEC)?.ok_or(rebpf_error::Error::InvalidProgName)?;
+    let bpf_prog = libbpf::bpf_object__find_program_by_title(&bpf_object, DEFAULT_PROG_SEC)?;
     let bpf_fd = libbpf::bpf_program__fd(&bpf_prog)?;
     libbpf::bpf_set_link_xdp_fd(&interface, Some(&bpf_fd), xdp_flags)?;
     let info = libbpf::bpf_obj_get_info_by_fd(&bpf_fd)?;

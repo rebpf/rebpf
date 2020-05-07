@@ -8,6 +8,7 @@ license = "GPL-3.0"
 [dependencies]
 rebpf = { version = "0.1.2", path = "../../rebpf" }
 clap = "2.23.0"
+#pdu = "1.0.1"
 
 [lib]
 name = "kern"

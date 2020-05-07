@@ -41,4 +41,8 @@ pub(crate) fn map_generic_error<T>(e: GenericError) -> Result<T, Error> {
 
 pub(crate) fn map_libbpf_error<T>(function_name: &str, e: LibbpfError) -> Result<T, Error> {
     Err(Error::Libbpf(function_name.to_owned(), e))
+
+}
+pub(crate) fn map_libbpf_sys_error<T>(function_name: &str, e: i32) -> Result<T, Error> {
+    Err(Error::Libbpf(function_name.to_owned(), LibbpfError::LibbpfSys(e)))
 }

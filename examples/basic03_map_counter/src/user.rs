@@ -5,10 +5,11 @@
 
 use clap::{App, Arg};
 use rebpf::maps::Lookup;
-use rebpf::userspace::maps::Array;
+//use rebpf::userspace::maps::Array;
+use rebpf::userspace::maps::PerCpuArray;
 use rebpf::{error as rebpf_error, interface, libbpf};
 use std::path::Path;
-use std::sync::atomic::Ordering::Relaxed;
+//use std::sync::atomic::Ordering::Relaxed;
 
 mod common_kern_user;
 use common_kern_user::{DataRec, MAX_ENTRIES};
@@ -25,8 +26,7 @@ fn load_bpf(
     xdp_flags: libbpf::XdpFlags,
 ) -> Result<libbpf::BpfObject, rebpf_error::Error> {
     let (bpf_object, _bpf_fd) = libbpf::bpf_prog_load(bpf_program_path, libbpf::BpfProgType::XDP)?;
-    let bpf_prog = libbpf::bpf_object__find_program_by_title(&bpf_object, prog_sec)?
-        .ok_or(rebpf_error::Error::InvalidProgName)?;
+    let bpf_prog = libbpf::bpf_object__find_program_by_title(&bpf_object, prog_sec)?;
     let bpf_fd = libbpf::bpf_program__fd(&bpf_prog)?;
     libbpf::bpf_set_link_xdp_fd(&interface, Some(&bpf_fd), xdp_flags)?;
     let info = libbpf::bpf_obj_get_info_by_fd(&bpf_fd)?;
@@ -56,17 +56,38 @@ struct Record {
     total: DataRec,
 }
 
-fn map_collect(bpf_map: &Array<DataRec>, key: u32) -> Record {
+fn map_collect(bpf_map: &PerCpuArray<DataRec>, key: u32) -> Record {
     Record {
         total: match bpf_map.lookup(&key) {
-            Some(value) => value,
-            _ => unsafe { std::mem::zeroed() },
+            Some(values) => {
+                let mut rx_packets = 0;
+                for v in &values {
+                    rx_packets += v.rx_packets;
+                }
+                let mut v = values.first().unwrap().clone();
+                v.rx_packets = rx_packets;
+                v
+            },
+            _ => panic!("Element not found in map"),
         },
         timestamp: std::time::Instant::now(),
     }
 }
 
-fn stats_poll(bpf_map: &Array<DataRec>, interval: u64) {
+fn stats_print(rec: &Record, prev: &Record) {
+    let time = rec.timestamp.duration_since(prev.timestamp);
+    let packets = (rec.total.rx_packets - prev.total.rx_packets) as u64;
+    let pps = packets / time.as_secs();
+    println!(
+        "Action: {:?}, packets: {}, pps: {}, period: {:?}",
+        libbpf::XdpAction::PASS,
+        packets,
+        pps,
+        time
+    )
+}
+
+fn stats_poll(bpf_map: &PerCpuArray<DataRec>, interval: u64) {
     let key = libbpf::XdpAction::PASS as u32;
     let mut previous = map_collect(bpf_map, key);
     std::thread::sleep(std::time::Duration::from_secs(1));
@@ -76,19 +97,6 @@ fn stats_poll(bpf_map: &Array<DataRec>, interval: u64) {
         std::mem::swap(&mut current, &mut previous);
         std::thread::sleep(std::time::Duration::from_secs(interval));
     }
-}
-
-fn stats_print(rec: &Record, prev: &Record) {
-    let time = rec.timestamp.duration_since(prev.timestamp);
-    let packets = (rec.total.rx_packets.load(Relaxed) - prev.total.rx_packets.load(Relaxed)) as u64;
-    let pps = packets / time.as_secs();
-    println!(
-        "Action: {:?}, packets: {}, pps: {}, period: {:?}",
-        libbpf::XdpAction::PASS,
-        packets,
-        pps,
-        time
-    )
 }
 
 fn run(
@@ -104,7 +112,7 @@ fn run(
         return unload_bpf(&interface, xdp_flags);
     }
     let bpf_object = load_bpf(&interface, bpf_program_path, prog_sec, xdp_flags)?;
-    let stats_map = Array::from_obj(&bpf_object, map_name)?;
+    let stats_map = PerCpuArray::<DataRec>::from_obj(&bpf_object, map_name)?;
     let map_info = stats_map.extract_info()?;
     assert!(map_info.max_entries() == MAX_ENTRIES);
     println!("\nCollecting stats from BPF map");

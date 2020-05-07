@@ -12,11 +12,15 @@ pub trait Map {
     type Value;
 }
 
-pub trait Lookup: Map {
+pub trait Lookup<Value = <Self as Map>::Value>: Map {
     /// Lookup the map content associated with the given key.
     ///
     /// Note that the return value is a mere copy of said content.
-    fn lookup(&self, key: &Self::Key) -> Option<Self::Value>;
+    fn lookup(&self, key: &Self::Key) -> Option<Value>;
+
+    /// Lookup the map content associated with the given key and if key
+    /// is found copy content into value and return Some(()).
+    fn lookup_ref(&self, key: &Self::Key, value: &mut Value) -> Option<()>;
 }
 
 pub trait Update: Map {

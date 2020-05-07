@@ -187,8 +187,21 @@ pub struct BpfMapFd<T, U> {
     _value_ty: std::marker::PhantomData<U>,
 }
 
+impl<T, U> BpfMapFd<T, U> {
+    pub fn new(fd: raw::c_int) -> Self {
+        BpfMapFd {
+            map_fd: UnsafeBpfMapFd {
+                fd,
+                _info_type: std::marker::PhantomData,
+            },
+            _key_ty: std::marker::PhantomData,
+            _value_ty: std::marker::PhantomData,
+        }
+    }
+}
+
 impl<T, U> BpfFd for BpfMapFd<T, U> {
-    type BpfInfoType = BpfMapInfo;
+    type BpfInfoType = BpfMapInfo; 
     fn fd(&self) -> raw::c_int {
         self.map_fd.fd()
     }
@@ -316,11 +329,13 @@ pub fn bpf_prog_load(
     ))
 }
 
-#[allow(non_snake_case)]
 pub fn bpf_map_lookup_elem<T, U>(map_fd: &BpfMapFd<T, U>, key: &T, value: &mut U) -> Option<()> {
+    unsafe_bpf_map_lookup_elem(map_fd, key, value as *mut U)
+}
+
+pub fn unsafe_bpf_map_lookup_elem<T, U, V>(map_fd: &BpfMapFd<T, U>, key: &T, value: *mut V) -> Option<()> {
     let key_void_p = to_const_c_void(key);
-    let value_void_p = to_mut_c_void(value);
-    let err = unsafe { libbpf_sys::bpf_map_lookup_elem(map_fd.fd(), key_void_p, value_void_p) };
+    let err = unsafe { libbpf_sys::bpf_map_lookup_elem(map_fd.fd(), key_void_p, value as *mut raw::c_void) };
     if err != 0 {
         return None;
     }
@@ -349,17 +364,17 @@ pub fn bpf_map_update_elem<T, U>(
 pub fn bpf_object__find_program_by_title(
     bpf_object: &BpfObject,
     title: &str,
-) -> Result<Option<BpfProgram>> {
+) -> Result<BpfProgram> {
     let title_cs: CString = str_to_cstring(title)?;
     let bpf_program: *mut libbpf_sys::bpf_program = unsafe {
         libbpf_sys::bpf_object__find_program_by_title(bpf_object.pobj, title_cs.as_ptr())
     };
     if bpf_program.is_null() {
-        return Ok(None);
+        return Err(Error::InvalidProgName);
     }
-    Ok(Some(BpfProgram {
+    Ok(BpfProgram {
         pprogram: bpf_program,
-    }))
+    })
 }
 
 #[allow(non_snake_case)]
@@ -371,6 +386,17 @@ pub fn bpf_object__find_map_by_name(bpf_object: &BpfObject, name: &str) -> Resul
         return Err(Error::InvalidMapName);
     }
     Ok(BpfMap { pmap: bpf_map })
+}
+
+#[allow(non_snake_case)]
+pub fn bpf_object__find_map_fd_by_name<T, U>(bpf_object: &BpfObject, name: &str) -> Result<BpfMapFd<T, U>> {
+    let name_cs = str_to_cstring(name)?;
+    let bpf_map_fd =
+        unsafe { libbpf_sys::bpf_object__find_map_fd_by_name(bpf_object.pobj, name_cs.as_ptr()) };
+    if bpf_map_fd < 0 {
+        return Err(Error::InvalidMapName);
+    }
+    Ok(BpfMapFd::new(bpf_map_fd))
 }
 
 #[allow(non_snake_case)]
@@ -434,14 +460,7 @@ pub fn bpf_map__fd<T, U>(bpf_map: &BpfMap) -> Result<BpfMapFd<T, U>> {
     if fd < 0 {
         return map_libbpf_error(function_name!(), LibbpfError::InvalidFd);
     }
-    Ok(BpfMapFd {
-        map_fd: UnsafeBpfMapFd {
-            fd,
-            _info_type: std::marker::PhantomData,
-        },
-        _key_ty: std::marker::PhantomData,
-        _value_ty: std::marker::PhantomData,
-    })
+    Ok(BpfMapFd::new(fd))
 }
 
 #[derive(Debug)]
@@ -470,6 +489,7 @@ bitflags::bitflags! {
 pub struct XdpMd(libbpf_sys::xdp_md);
 
 impl XdpMd {
+    #[inline]
     pub fn data_buffer(&self) -> &[u8] {
         unsafe {
             let data_64 = self.0.data as u64;
@@ -508,4 +528,13 @@ pub fn bpf_set_link_xdp_fd(
     }
 
     Ok(())
+}
+
+#[named]
+pub fn libbpf_num_possible_cpus() -> Result<i32> {
+    let num_cpus =  unsafe { libbpf_sys::libbpf_num_possible_cpus() };
+    if num_cpus < 0 {
+        return map_libbpf_sys_error(function_name!(), num_cpus);
+    }
+    Ok(num_cpus)
 }
