@@ -1,11 +1,16 @@
+#[cfg(feature = "userspace")]
 use crate::{
-    error::{Error, LibbpfError, Result},
     interface,
+    error::{Error, LibbpfError, Result},
     utils::*,
 };
+
 pub use libbpf_sys;
+
+#[allow(unused)]
 use std::{ffi::CString, marker::PhantomData, mem, os::raw, path::Path, ptr};
 
+#[cfg(feature = "userspace")]
 #[repr(u32)]
 #[allow(non_camel_case_types)]
 pub enum BpfProgType {
@@ -77,15 +82,18 @@ pub enum BpfMapType {
     DEVMAP_HASH = libbpf_sys::BPF_MAP_TYPE_DEVMAP_HASH,
 }
 
+#[cfg(feature = "userspace")]
 pub struct BpfObject {
     pobj: *mut libbpf_sys::bpf_object,
 }
 
+#[cfg(feature = "userspace")]
 pub struct BpfObjectIterator<'a> {
     src: &'a BpfObject,
     next: Option<BpfProgram>,
 }
 
+#[cfg(feature = "userspace")]
 impl BpfObjectIterator<'_> {
     fn new(src: &BpfObject) -> BpfObjectIterator {
         let next = bpf_program__next(None, src);
@@ -93,6 +101,7 @@ impl BpfObjectIterator<'_> {
     }
 }
 
+#[cfg(feature = "userspace")]
 impl Iterator for BpfObjectIterator<'_> {
     type Item = BpfProgram;
 
@@ -108,6 +117,7 @@ impl Iterator for BpfObjectIterator<'_> {
     }
 }
 
+#[cfg(feature = "userspace")]
 impl<'a> IntoIterator for &'a BpfObject {
     type Item = BpfProgram;
     type IntoIter = BpfObjectIterator<'a>;
@@ -117,18 +127,22 @@ impl<'a> IntoIterator for &'a BpfObject {
     }
 }
 
+#[cfg(feature = "userspace")]
 pub trait BpfFd {
     type BpfInfoType;
     fn fd(&self) -> raw::c_int;
 }
 
+#[cfg(feature = "userspace")]
 pub trait BpfInfo {
     type BpfRawInfoType;
     fn new(raw_info: Self::BpfRawInfoType) -> Self;
 }
 
+#[cfg(feature = "userspace")]
 pub type BpfProgFd = BpfFdImpl<BpfProgInfo, libbpf_sys::bpf_prog_info>;
 
+#[cfg(feature = "userspace")]
 pub struct BpfFdImpl<T, U>
 where
     T: BpfInfo<BpfRawInfoType = U>,
@@ -137,6 +151,7 @@ where
     _info_type: std::marker::PhantomData<T>,
 }
 
+#[cfg(feature = "userspace")]
 impl<T, U> BpfFd for BpfFdImpl<T, U>
 where
     T: BpfInfo<BpfRawInfoType = U>,
@@ -148,14 +163,17 @@ where
     }
 }
 
+#[cfg(feature = "userspace")]
 pub struct BpfProgram {
     pprogram: *mut libbpf_sys::bpf_program,
 }
 
+#[cfg(feature = "userspace")]
 pub struct BpfProgInfo {
     info: libbpf_sys::bpf_prog_info,
 }
 
+#[cfg(feature = "userspace")]
 impl BpfInfo for BpfProgInfo {
     type BpfRawInfoType = libbpf_sys::bpf_prog_info;
     fn new(raw_info: Self::BpfRawInfoType) -> Self {
@@ -163,6 +181,7 @@ impl BpfInfo for BpfProgInfo {
     }
 }
 
+#[cfg(feature = "userspace")]
 impl BpfProgInfo {
     pub fn id(&self) -> u32 {
         self.info.id
@@ -175,18 +194,22 @@ impl BpfProgInfo {
     }
 }
 
+#[cfg(feature = "userspace")]
 pub struct BpfMap {
     pmap: *mut libbpf_sys::bpf_map,
 }
 
+#[cfg(feature = "userspace")]
 pub type UnsafeBpfMapFd = BpfFdImpl<BpfMapInfo, libbpf_sys::bpf_map_info>;
 
+#[cfg(feature = "userspace")]
 pub struct BpfMapFd<T, U> {
     map_fd: UnsafeBpfMapFd,
     _key_ty: std::marker::PhantomData<T>,
     _value_ty: std::marker::PhantomData<U>,
 }
 
+#[cfg(feature = "userspace")]
 impl<T, U> BpfMapFd<T, U> {
     pub fn new(fd: raw::c_int) -> Self {
         BpfMapFd {
@@ -200,6 +223,7 @@ impl<T, U> BpfMapFd<T, U> {
     }
 }
 
+#[cfg(feature = "userspace")]
 impl<T, U> BpfFd for BpfMapFd<T, U> {
     type BpfInfoType = BpfMapInfo; 
     fn fd(&self) -> raw::c_int {
@@ -207,6 +231,7 @@ impl<T, U> BpfFd for BpfMapFd<T, U> {
     }
 }
 
+#[allow(unused)]
 #[repr(transparent)]
 pub struct BpfMapDef<T, U> {
     pub(crate) map_def: libbpf_sys::bpf_map_def,
@@ -228,7 +253,8 @@ impl<T, U> BpfMapDef<T, U> {
             _value_ty: PhantomData,
         }
     }
-
+    
+    #[cfg(feature = "userspace")]
     pub fn to_bpf_map_info(&self) -> BpfMapInfo {
         let mut info: libbpf_sys::bpf_map_info = unsafe { mem::zeroed() };
         info.type_ = self.map_def.type_;
@@ -240,10 +266,12 @@ impl<T, U> BpfMapDef<T, U> {
     }
 }
 
+#[cfg(feature = "userspace")]
 pub struct BpfMapInfo {
     info: libbpf_sys::bpf_map_info,
 }
 
+#[cfg(feature = "userspace")]
 impl BpfInfo for BpfMapInfo {
     type BpfRawInfoType = libbpf_sys::bpf_map_info;
     fn new(raw_info: Self::BpfRawInfoType) -> Self {
@@ -251,6 +279,7 @@ impl BpfInfo for BpfMapInfo {
     }
 }
 
+#[cfg(feature = "userspace")]
 impl BpfMapInfo {
     pub fn id(&self) -> u32 {
         self.info.id
@@ -282,6 +311,7 @@ impl BpfMapInfo {
     }
 }
 
+#[cfg(feature = "userspace")]
 #[named]
 pub fn bpf_obj_get_info_by_fd<T: BpfFd>(bpf_fd: &T) -> Result<T::BpfInfoType>
 where
@@ -300,6 +330,7 @@ where
     Ok(<<T as BpfFd>::BpfInfoType as BpfInfo>::new(info))
 }
 
+#[cfg(feature = "userspace")]
 #[named]
 pub fn bpf_prog_load(
     file_path: &Path,
@@ -329,10 +360,12 @@ pub fn bpf_prog_load(
     ))
 }
 
+#[cfg(feature = "userspace")]
 pub fn bpf_map_lookup_elem<T, U>(map_fd: &BpfMapFd<T, U>, key: &T, value: &mut U) -> Option<()> {
     unsafe_bpf_map_lookup_elem(map_fd, key, value as *mut U)
 }
 
+#[cfg(feature = "userspace")]
 pub fn unsafe_bpf_map_lookup_elem<T, U, V>(map_fd: &BpfMapFd<T, U>, key: &T, value: *mut V) -> Option<()> {
     let key_void_p = to_const_c_void(key);
     let err = unsafe { libbpf_sys::bpf_map_lookup_elem(map_fd.fd(), key_void_p, value as *mut raw::c_void) };
@@ -343,6 +376,7 @@ pub fn unsafe_bpf_map_lookup_elem<T, U, V>(map_fd: &BpfMapFd<T, U>, key: &T, val
 }
 
 /// Thin wrapper around libbpf's bpf_map_update_elem function.
+#[cfg(feature = "userspace")]
 pub fn bpf_map_update_elem<T, U>(
     map_fd: &BpfMapFd<T, U>,
     key: &T,
@@ -360,6 +394,7 @@ pub fn bpf_map_update_elem<T, U>(
     }
 }
 
+#[cfg(feature = "userspace")]
 #[allow(non_snake_case)]
 pub fn bpf_object__find_program_by_title(
     bpf_object: &BpfObject,
@@ -377,6 +412,7 @@ pub fn bpf_object__find_program_by_title(
     })
 }
 
+#[cfg(feature = "userspace")]
 #[allow(non_snake_case)]
 pub fn bpf_object__find_map_by_name(bpf_object: &BpfObject, name: &str) -> Result<BpfMap> {
     let name_cs = str_to_cstring(name)?;
@@ -388,6 +424,7 @@ pub fn bpf_object__find_map_by_name(bpf_object: &BpfObject, name: &str) -> Resul
     Ok(BpfMap { pmap: bpf_map })
 }
 
+#[cfg(feature = "userspace")]
 #[allow(non_snake_case)]
 pub fn bpf_object__find_map_fd_by_name<T, U>(bpf_object: &BpfObject, name: &str) -> Result<BpfMapFd<T, U>> {
     let name_cs = str_to_cstring(name)?;
@@ -399,6 +436,7 @@ pub fn bpf_object__find_map_fd_by_name<T, U>(bpf_object: &BpfObject, name: &str)
     Ok(BpfMapFd::new(bpf_map_fd))
 }
 
+#[cfg(feature = "userspace")]
 #[allow(non_snake_case)]
 pub fn bpf_program__set_type(bpf_program: &mut BpfProgram, bpf_prog_type: BpfProgType) {
     unsafe {
@@ -406,6 +444,7 @@ pub fn bpf_program__set_type(bpf_program: &mut BpfProgram, bpf_prog_type: BpfPro
     };
 }
 
+#[cfg(feature = "userspace")]
 #[allow(non_snake_case)]
 pub fn bpf_program__set_ifindex(bpf_program: &mut BpfProgram, interface: &interface::Interface) {
     unsafe {
@@ -413,6 +452,7 @@ pub fn bpf_program__set_ifindex(bpf_program: &mut BpfProgram, interface: &interf
     };
 }
 
+#[cfg(feature = "userspace")]
 #[allow(non_snake_case)]
 pub fn bpf_program__next(
     bpf_program: Option<&BpfProgram>,
@@ -430,6 +470,7 @@ pub fn bpf_program__next(
     Some(BpfProgram { pprogram })
 }
 
+#[cfg(feature = "userspace")]
 #[allow(non_snake_case)]
 #[named]
 pub fn bpf_program__fd(bpf_program: &BpfProgram) -> Result<BpfProgFd> {
@@ -443,6 +484,7 @@ pub fn bpf_program__fd(bpf_program: &BpfProgram) -> Result<BpfProgFd> {
     })
 }
 
+#[cfg(feature = "userspace")]
 #[allow(non_snake_case)]
 #[named]
 pub fn bpf_program__title(bpf_program: &BpfProgram) -> Result<String> {
@@ -453,6 +495,7 @@ pub fn bpf_program__title(bpf_program: &BpfProgram) -> Result<String> {
     c_char_pointer_to_string(title_c_char_p)
 }
 
+#[cfg(feature = "userspace")]
 #[allow(non_snake_case)]
 #[named]
 pub fn bpf_map__fd<T, U>(bpf_map: &BpfMap) -> Result<BpfMapFd<T, U>> {
@@ -488,27 +531,46 @@ bitflags::bitflags! {
 #[repr(transparent)]
 pub struct XdpMd(libbpf_sys::xdp_md);
 
+#[cfg(feature = "bpf")]
 impl XdpMd {
-    #[inline]
-    pub fn data_buffer(&self) -> &[u8] {
+    #[inline(always)]
+    pub fn data_buffer(&self) -> Option<&[u8]> {
         unsafe {
-            let data_64 = self.0.data as u64;
-            let data_buffer: *const u8 = std::mem::transmute(data_64);
+            let data_buffer: *const u8 = self.0.data as usize as *const u8;
             let data_buffer_size = (self.0.data_end - self.0.data) as usize;
-            std::slice::from_raw_parts(data_buffer, data_buffer_size)
+            if data_buffer_size <= 0 {
+                return None;
+            }
+            Some(
+                std::slice::from_raw_parts(data_buffer, data_buffer_size)
+            )
         }
     }
+
+    #[inline(always)]
+    pub fn data_pointer(&self) -> (*const u8, *const u8) {
+        unsafe {
+            (self.0.data as usize as *const u8, self.0.data_end as usize as *const u8)
+        }
+    }
+
+    #[inline(always)]
     pub fn data_meta(&self) -> u32 {
         self.0.data_meta
     }
+
+    #[inline(always)]
     pub fn ingress_ifindex(&self) -> u32 {
         self.0.ingress_ifindex
     }
+
+    #[inline(always)]
     pub fn rx_queue_index(&self) -> u32 {
         self.0.rx_queue_index
     }
 }
 
+#[cfg(feature = "userspace")]
 #[named]
 pub fn bpf_set_link_xdp_fd(
     interface: &interface::Interface,
@@ -530,6 +592,7 @@ pub fn bpf_set_link_xdp_fd(
     Ok(())
 }
 
+#[cfg(feature = "userspace")]
 #[named]
 pub fn libbpf_num_possible_cpus() -> Result<i32> {
     let num_cpus =  unsafe { libbpf_sys::libbpf_num_possible_cpus() };

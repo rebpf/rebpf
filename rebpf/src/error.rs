@@ -15,6 +15,7 @@ pub enum GenericError {
     CCharConversion(std::str::Utf8Error),
     InvalidPath,
     InvalidInterfaceName(String),
+    OutOfIndex,
 }
 
 #[derive(Debug)]

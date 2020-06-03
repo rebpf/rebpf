@@ -12,9 +12,14 @@ A ebpf library built on top of libbpf (no bcc dependency).
 """
 keywords = ["bpf", "ebpf", "rebpf", "xdp"]
 
+[features]
+default = ["bpf", "userspace"]
+bpf = []
+userspace = []
+
 [dependencies]
-libc = "0.2.66"
-libbpf-sys = "0.0.7-1"
-bitflags = "1.2"
 rebpf-macro = { path = "../rebpf-macro", version = "0.1.0" }
+libbpf-sys = "0.0.7-1"
+libc = "0.2.66"
+bitflags = "1.2"
 function_name = "0.2.0"
