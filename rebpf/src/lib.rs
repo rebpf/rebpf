@@ -16,9 +16,9 @@ pub mod bpf;
 pub mod helpers;
 
 #[cfg(feature = "userspace")]
-pub mod userspace;
-#[cfg(feature = "userspace")]
 pub mod interface;
+#[cfg(feature = "userspace")]
+pub mod userspace;
 
 pub const LICENSE: [u8; 4] = ['G' as u8, 'P' as u8, 'L' as u8, '\0' as u8]; //b"GPL\0"
 pub const VERSION: u32 = 0xFFFFFFFE;

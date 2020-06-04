@@ -2,11 +2,11 @@ use crate::{
     error::{Error, GenericError},
     utils,
 };
-use std::ffi::CString;
 use libc;
+use std::ffi::CString;
 
 pub struct Interface {
-    pub(crate) ifindex: u32
+    pub(crate) ifindex: u32,
 }
 
 impl Interface {
@@ -27,7 +27,5 @@ fn if_nametoindex(dev: &str) -> Result<u32, Error> {
 
 pub fn get_interface(interface_name: &str) -> Result<Interface, Error> {
     let ifindex = if_nametoindex(interface_name)?;
-    Ok(Interface {
-        ifindex
-    })
-}  
+    Ok(Interface { ifindex })
+}

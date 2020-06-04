@@ -79,7 +79,12 @@ macro_rules! impl_update {
 
 macro_rules! impl_update_gen {
     () => {
-        fn update(&mut self, key: &Self::Key, value: &Self::Value, flags: BpfUpdateElemFlags) -> Result<()> {
+        fn update(
+            &mut self,
+            key: &Self::Key,
+            value: &Self::Value,
+            flags: BpfUpdateElemFlags,
+        ) -> Result<()> {
             libbpf::bpf_map_update_elem(&self.fd, key, value, flags)
         }
     };
@@ -118,13 +123,16 @@ impl_lookup!(CpuMap);
 map_def!(struct Array<T>: BpfMapType::ARRAY);
 impl_update!(Array<T>);
 impl_lookup!(Array<T>);
-    
+
 pub struct PerCpuArray<T> {
     fd: BpfMapFd<u32, T>,
     num_cpus: usize,
 }
 
-impl<T> Map for PerCpuArray<T> { type Key = u32; type Value = T; }
+impl<T> Map for PerCpuArray<T> {
+    type Key = u32;
+    type Value = T;
+}
 
 impl<T> PerCpuArray<T> {
     pub fn from_obj(bpf_obj: &BpfObject, map_name: &str) -> Result<Self> {

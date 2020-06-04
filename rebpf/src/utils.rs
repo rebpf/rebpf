@@ -12,7 +12,8 @@ use std::{
 
 #[cfg(feature = "userspace")]
 pub(crate) fn path_to_str(path: &Path) -> Result<&str> {
-    path.to_str().ok_or(Error::Generic(GenericError::InvalidPath))
+    path.to_str()
+        .ok_or(Error::Generic(GenericError::InvalidPath))
 }
 
 #[cfg(feature = "userspace")]
@@ -51,10 +52,12 @@ pub(crate) fn map_generic_error<T>(e: GenericError) -> Result<T> {
 #[allow(unused)]
 pub(crate) fn map_libbpf_error<T>(function_name: &str, e: LibbpfError) -> Result<T> {
     Err(Error::Libbpf(function_name.to_owned(), e))
-
 }
 
 #[allow(unused)]
 pub(crate) fn map_libbpf_sys_error<T>(function_name: &str, e: i32) -> Result<T> {
-    Err(Error::Libbpf(function_name.to_owned(), LibbpfError::LibbpfSys(e)))
+    Err(Error::Libbpf(
+        function_name.to_owned(),
+        LibbpfError::LibbpfSys(e),
+    ))
 }
