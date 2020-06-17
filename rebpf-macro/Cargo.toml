@@ -1,9 +1,9 @@
 [package]
 name = "rebpf-macro"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Lorenzo Vannucci <lorenzo@vannucci.io>"]
 edition = "2018"
-license = "LGPL-3.0"
+license = "MIT"
 documentation = "https://docs.rs/rebpf-macro/"
 repository = "https://github.com/uccidibuti/rebpf"
 description = """

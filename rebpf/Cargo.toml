@@ -1,9 +1,9 @@
 [package]
 name = "rebpf"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Lorenzo Vannucci <lorenzo@vannucci.io>"]
 edition = "2018"
-license = "LGPL-3.0"
+license = "MIT"
 documentation = "https://docs.rs/rebpf/"
 readme = "../README.md"
 repository = "https://github.com/uccidibuti/rebpf"
@@ -18,7 +18,7 @@ bpf = []
 userspace = []
 
 [dependencies]
-rebpf-macro = { path = "../rebpf-macro", version = "0.1.0" }
+rebpf-macro = { path = "../rebpf-macro" }
 libbpf-sys = "0.0.7-1"
 libc = "0.2.66"
 bitflags = "1.2"
