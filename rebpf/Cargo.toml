@@ -18,7 +18,7 @@ bpf = []
 userspace = []
 
 [dependencies]
-rebpf-macro = { path = "../rebpf-macro" }
+rebpf-macro = { version = "0.1.1", path = "../rebpf-macro" }
 libbpf-sys = "0.0.7-1"
 libc = "0.2.66"
 bitflags = "1.2"
