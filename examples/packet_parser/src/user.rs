@@ -167,7 +167,7 @@ fn run(
 }
 
 fn main() {
-    let matches = App::new("map_counter")
+    let matches = App::new("packet_parser")
         .version("1.0")
         .author("Lorenzo Vannucci lorenzo@vannucci.io")
         .arg(

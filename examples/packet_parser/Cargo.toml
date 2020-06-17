@@ -1,5 +1,5 @@
 [package]
-name = "map_counter"
+name = "packet_parser"
 version = "0.1.0"
 authors = ["Lorenzo Vannucci <lorenzo@vannucci.io>"]
 edition = "2018"

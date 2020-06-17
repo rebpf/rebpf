@@ -4,6 +4,7 @@ rebpf is a Rust library built on top of libbpf (no bcc dependency) that allows t
 - A raw binding of libbpf provide by [libbpf-sys](https://github.com/alexforster/libbpf-sys).
 - A safe wrapper of libbpf (Work in progress).
 - High level ebpf api built on top of libbpf wrapper (Work in progress).
+- Parse packets in bpf programs using [pdu](https://github.com/uccidibuti/pdu), for more details see [packet_parser](https://github.com/uccidibuti/rebpf/tree/master/examples/packet_parser).
 
 ## Source code overview
 - All functions and structs that represent a safe wrapper of libbpf are located in [lib.rs](./src/lib.rs) and [helpers.rs](./src/helpers.rs) with the same names of the functions and structs in libbpf (structs names are switched from snake_case to caml_case).
