@@ -18,11 +18,11 @@ pub static _license: [u8; 4] = LICENSE;
 pub static _version: u32 = VERSION;
 
 #[sec("xdp_pass")]
-fn _xdp_pass(_ctx: &XdpMd) -> XdpAction {
+pub fn _xdp_pass(_ctx: &XdpMd) -> XdpAction {
     XdpAction::PASS
 }
 
 #[sec("xdp_drop")]
-fn _xdp_drop(_ctx: &XdpMd) -> XdpAction {
+pub fn _xdp_drop(_ctx: &XdpMd) -> XdpAction {
     XdpAction::DROP
 }

@@ -8,5 +8,5 @@ pub static _license: [u8; 4] = LICENSE;
 pub static _version: u32 = VERSION;
 
 #[sec("my_function")]
-fn _my_function() {
+pub fn _my_function() {
 }

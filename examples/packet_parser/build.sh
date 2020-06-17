@@ -12,8 +12,11 @@ OUT_ELF=$OUT_DIR"/"$BPF_PROG_NAME".o"
 RM_UND=./remove_undefined_functions.sh
 
 mkdir -p $OUT_DIR
-TARGET=$(echo target/release/deps/kern*.bc)
-rm -f $TARGET
+TARGET_DIRECTORY="target/release/deps"
+TARGET=$(echo $TARGET_DIRECTORY"/kern*.bc")
+if [ -d $TARGET_DIRECTORY ]; then
+    rm -f $TARGET
+fi
 cargo rustc --lib --release -- --emit=llvm-bc
 cp $TARGET $OUT_BC
 $LLVM_DIS $OUT_BC -o $OUT_IR_TEMP
