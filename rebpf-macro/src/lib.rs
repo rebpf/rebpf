@@ -33,28 +33,3 @@ pub fn sec(args: TokenStream, input: TokenStream) -> TokenStream {
     tts.extend(input);
     tts
 }
-
-#[proc_macro]
-pub fn import_panic_symbol(input: TokenStream) -> TokenStream {
-    if input.is_empty() == false {
-        let err = Error::new(
-            Span::call_site(),
-            "Error occured parsing import_panic_symbol parameters: must be empty",
-        )
-        .to_compile_error();
-        return TokenStream::from(err);
-    }
-    let mut tts: TokenStream = TokenStream::new();
-    let attr = quote! {
-        #[no_mangle]
-        pub fn _ZN4core9panicking5panic17h0fd4184f909d9498E() {
-        }
-
-        #[no_mangle]
-        pub fn _ZN4core9panicking18panic_bounds_check17h657fd036b4404d7aE() {
-        }
-    };
-    let tts_attr = TokenStream::from(attr);
-    tts.extend(tts_attr);
-    tts
-}

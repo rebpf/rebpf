@@ -60,12 +60,33 @@ fn map_collect(bpf_map: &PerCpuArray<DataRec>, key: u32) -> Record {
     Record {
         total: match bpf_map.lookup(&key) {
             Some(values) => {
+                let mut packets_size = 0;
+                let mut count_cpu_rx_packets = 0;
                 let mut rx_packets = 0;
+                let mut source_mac = [0u8; 6];
+                let mut source_ipv4 = [0u8; 4];
+                let mut dest_ipv4 = [0u8; 4];
+                let mut dest_mac = [0u8; 6];
                 for v in &values {
                     rx_packets += v.rx_packets;
+                    if v.rx_packets > 0 {
+                        count_cpu_rx_packets += 1;
+                        packets_size += v.packets_size;
+                        source_mac = v.last_source_mac;
+                        dest_mac = v.last_dest_mac;
+                        source_ipv4 = v.last_source_ipv4;
+                        dest_ipv4 = v.last_dest_ipv4;
+                    }
                 }
                 let mut v = values.first().unwrap().clone();
                 v.rx_packets = rx_packets;
+                if count_cpu_rx_packets > 0 {
+                    v.packets_size = packets_size;
+                    v.last_source_mac = source_mac;
+                    v.last_dest_mac = dest_mac;
+                    v.last_source_ipv4 = source_ipv4;
+                    v.last_dest_ipv4 = dest_ipv4;
+                }
                 v
             },
             _ => panic!("Element not found in map"),
@@ -77,14 +98,28 @@ fn map_collect(bpf_map: &PerCpuArray<DataRec>, key: u32) -> Record {
 fn stats_print(rec: &Record, prev: &Record) {
     let time = rec.timestamp.duration_since(prev.timestamp);
     let packets = (rec.total.rx_packets - prev.total.rx_packets) as u64;
+    let packets_size = (rec.total.packets_size - prev.total.packets_size) as u64;
     let pps = packets / time.as_secs();
     println!(
-        "Action: {:?}, packets: {}, pps: {}, period: {:?}",
+        "Action: {:?}, packets: {}, pps: {}, period: {:?}, packets size = {}",
         libbpf::XdpAction::PASS,
         packets,
         pps,
-        time
-    )
+        time,
+        packets_size,
+    );
+
+    if packets > 0 {
+        println!("last source mac = {:?}, last destination mac = {:?}",
+                 rec.total.last_source_mac,
+                 rec.total.last_dest_mac,
+        );
+        println!("last source ipv4 = {:?}, last destination ipv4 = {:?}",
+                 rec.total.last_source_ipv4,
+                 rec.total.last_dest_ipv4,
+        );
+    }
+    println!("-------------------------------------------------");
 }
 
 fn stats_poll(bpf_map: &PerCpuArray<DataRec>, interval: u64) {
