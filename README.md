@@ -2,11 +2,11 @@
 rebpf is a Rust library built on top of libbpf (no bcc dependency) that allows to write and load bpf program, in details this library provides:
 
 - A raw binding of libbpf provide by [libbpf-sys](https://github.com/alexforster/libbpf-sys).
-- A safe wrapper of libbpf (Work in progress).
-- High level ebpf api built on top of libbpf wrapper (Work in progress).
+- A safe wrapper of libbpf.
+- High level ebpf api built on top of libbpf wrapper.
 - Parse packets in bpf programs using [pdu](https://github.com/uccidibuti/pdu), for more details see [packet_parser](./examples/packet_parser).
 
-For more details see [rebpf](./rebpf)
+For more details see [rebpf](./rebpf).
 
 **Author:** Lorenzo Vannucci \<lorenzo@vannucci.io\><br/>
 
@@ -14,7 +14,7 @@ For more details see [rebpf](./rebpf)
 Even if the distance of the name between rebpf and [RedBPF](https://github.com/redsift/redbpf) is very small, this library (rebpf) is a new indipendent project that has nothing to do with RedBPF Rust library.
 
 ## Usage
-To create your first ebpf program with rebpf library you can copy and rename an [empty project template](https://github.com/uccidibuti/rebpf/tree/master/examples/empty_project) and edit it changing <your_project_name>/src/kern.rs and <your_project_name>/src/user.rs files.
+To create your first ebpf program with rebpf library you can copy and rename an [empty_project template](https://github.com/uccidibuti/rebpf/tree/master/examples/empty_project) and edit it changing <your_project_name>/src/kern.rs and <your_project_name>/src/user.rs files.
 
 ### write your ebpf program
 Copy this content in <your_project_name>/src/kern.rs:
@@ -100,11 +100,20 @@ Expected output:
 Success Loading
  XDP prog name: _xdp_drop, id 33 on device: 2
 ```
+
+### about empty_project template
+[empty_project template](https://github.com/uccidibuti/rebpf/tree/master/examples/empty_project) allows to write bpf programs and bpf userspace loader in a single Rust project and compile both with [build.sh](./examples/empty_project/build.sh) script but it is also possible does two different project and compile both apart:
+- To compile bpf userspace loader project it is possible use "cargo build --release".
+- Because Rust compiler doesn't allow to emit bpf bytecode, to compile bpf project the only way is emit llvm-bytecode with Rust compiler and convert it with llc into bpf bytecode (llvm allows to compile llvm-bytecode into bpf-bytecode).
+
 ## Examples
 [link](https://github.com/uccidibuti/rebpf/tree/master/examples).
 
 ## Documentations
-[link](https://docs.rs/rebpf/0.1.2/rebpf/).
+[link](https://docs.rs/rebpf/0.1.3/rebpf/).
+
+## about writing bpf programs in Rust
+To allows that bpf verifier accept your Rust bpf program you must be sure that in your source code all functions are inline and that you check all array access explicity with a if condition (you must check the array pointer address and not the slice length). Besides there are some Rust core/std functions that internally call #inline(never) functions (i.e. [SliceIndex](https://doc.rust-lang.org/src/core/slice/mod.rs.html#2747)) and there isn't away to force Rust compiler to compile these functions inline, so to fix this problem i have made a bash scripts [build.sh](./examples/empty_project/build.sh) and [remove_undefined_functions.sh](./examples/empty_project/remove_undefined_functions.sh) that automatically remove these functions from llvm-bytecode before compile to bpf-bytecode and then allow you to use Rust core functions writing bpf programs in Rust.     
 
 ## Requirements
 - A recent [linux kernel](https://github.com/iovisor/bcc/blob/master/docs/kernel-versions.md)
