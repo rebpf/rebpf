@@ -8,7 +8,7 @@ license = "GPL-3.0"
 [dependencies]
 rebpf = { version = "0.1.2", path = "../../rebpf" }
 clap = "2.23.0"
-pdu = { path = "./pdu", features = ["bpf"] }
+pdu = { git = "https://github.com/uccidibuti/pdu.git", features = ["bpf"] }
 
 [lib]
 name = "kern"
