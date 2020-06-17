@@ -1,3 +1,5 @@
+//! This module contains a tiny wrapper of [bpf_helper_defs](https://github.com/libbpf/libbpf/blob/master/src/bpf_helper_defs.h).
+
 use crate::{
     error::{Error, LibbpfError},
     libbpf::{BpfMapDef, BpfUpdateElemFlags, XdpAction},
@@ -9,8 +11,6 @@ use std::{
     option::Option,
     os::raw::{c_int, c_void},
 };
-
-/// This module contains a tiny wrapper of [bpf_helper_defs](https://github.com/libbpf/libbpf/blob/master/src/bpf_helper_defs.h).
 
 /// This function is a very thin wrapper around the built-in bpf_map_lookup_elem.
 ///

@@ -1,3 +1,5 @@
+//! This module contains utils functions for interal use.
+
 #[allow(unused)]
 use crate::error::{Error, GenericError, LibbpfError, Result};
 
@@ -7,8 +9,6 @@ use std::{
     os::raw::{self, c_void},
     path::Path,
 };
-
-/// This module contains utils functions for interal use.
 
 #[cfg(feature = "userspace")]
 pub(crate) fn path_to_str(path: &Path) -> Result<&str> {

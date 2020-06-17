@@ -1,8 +1,8 @@
+//! This module contains traits defining common operations on BPF maps that can
+//! be executed both on the userspace side and the BPF side.
+
 use crate::error::Result;
 use crate::libbpf::BpfUpdateElemFlags;
-
-/// This module contains traits defining common operations on BPF maps that can
-/// be executed both on the userspace side and the BPF side.
 
 /// This trait is implemented by all the map wrapper types, as
 /// as convenient way to communicate their underlying types to the

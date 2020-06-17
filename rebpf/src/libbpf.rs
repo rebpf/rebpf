@@ -1,3 +1,6 @@
+//! This module contains a tiny safe wrapper of [libbpf](https://github.com/libbpf/libbpf)
+//! structs and functions. 
+
 #[cfg(feature = "userspace")]
 use crate::{
     error::{Error, LibbpfError, Result},
@@ -6,9 +9,6 @@ use crate::{
 };
 
 pub use libbpf_sys;
-
-/// This module contains a tiny safe wrapper of [libbpf](https://github.com/libbpf/libbpf)
-/// structs and functions. 
 
 #[allow(unused)]
 use std::{ffi::CString, marker::PhantomData, mem, os::raw, path::Path, ptr};

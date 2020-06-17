@@ -1,7 +1,7 @@
+//! This module contains utils functions to write bpf programs.
+
 #[allow(unused)]
 use crate::error::{Error, GenericError, Result};
-
-/// This module contains utils functions to write bpf programs.
 
 /// Returns a slice of the given slice from the byte range [begin, end).
 /// Differently from &[begin..end] this method is allowed in bpf programs.

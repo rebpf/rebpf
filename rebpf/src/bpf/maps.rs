@@ -1,13 +1,13 @@
+//! This module contains type-safe abstractions around some of various maps that the BPF VM uses to
+//! communicate with userspace. As the capabilities of the maps vary greatly, most of their
+//! behaviour is exposed via specific traits.
+
 use crate::{
     error::Result,
     helpers::{bpf_map_lookup_elem, bpf_map_update_elem, bpf_redirect_map},
     libbpf::{BpfMapDef, BpfMapType, BpfUpdateElemFlags, XdpAction},
     maps::*,
 };
-
-/// This module contains type-safe abstractions around some of various maps that the BPF VM uses to
-/// communicate with userspace. As the capabilities of the maps vary greatly, most of their
-/// behaviour is exposed via specific traits.
 
 macro_rules! map_new {
     ($map_type:path: $type_const:expr) => {
