@@ -10,6 +10,7 @@ use crate::error::{Error, GenericError, Result};
 pub fn get_unsafe_slice_range(slice: &[u8], begin: usize, end: usize) -> &[u8] {
     unsafe { std::slice::from_raw_parts(slice.as_ptr().offset(begin as isize), end - begin) }
 }
+
 /*
 /// Returns a slice of the given slice from the byte range [begin, end) checking slice length.
 /// Differently from &[begin..end] this method is allowed in bpf programs.

@@ -3,6 +3,17 @@ use crate::libbpf;
 use crate::libbpf::{BpfMapDef, BpfMapFd, BpfMapInfo, BpfMapType, BpfObject, BpfUpdateElemFlags};
 use crate::maps::*;
 
+pub trait Lookup<Value = <Self as Map>::Value>: Map {
+    /// Lookup the map content associated with the given key.
+    ///
+    /// Note that the return value is a mere copy of said content.
+    fn lookup(&self, key: &Self::Key) -> Option<Value>;
+
+    /// Lookup the map content associated with the given key and if key
+    /// is found copy content into value and return Some(()).
+    fn lookup_ref(&self, key: &Self::Key, value: &mut Value) -> Option<()>;
+}
+
 macro_rules! map_impl {
     ($type_const:expr) => {
         pub fn from_obj(bpf_obj: &BpfObject, map_name: &str) -> Result<Self> {

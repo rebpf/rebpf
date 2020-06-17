@@ -10,6 +10,13 @@ use std::{
     os::raw::{c_int, c_void},
 };
 
+/// This module contains a tiny wrapper of [bpf_helper_defs](https://github.com/libbpf/libbpf/blob/master/src/bpf_helper_defs.h).
+
+/// This function is a very thin wrapper around the built-in bpf_map_lookup_elem.
+///
+/// See the [kernel documentation](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/uapi/linux/bpf.h#n649)
+/// for more details.
+#[inline(always)]
 pub fn bpf_map_lookup_elem<'a, 'b, T, U>(
     map: &'a BpfMapDef<T, U>,
     key: &'b T,
@@ -26,6 +33,11 @@ pub fn bpf_map_lookup_elem<'a, 'b, T, U>(
     }
 }
 
+/// This function is a very thin wrapper around the built-in bpf_map_update_elem.
+///
+/// See the [kernel documentation](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/uapi/linux/bpf.h#n656)
+/// for more details.
+#[inline(always)]
 #[named]
 pub fn bpf_map_update_elem<'a, 'b, T, U>(
     map: &'a mut BpfMapDef<T, U>,
@@ -56,6 +68,7 @@ pub fn bpf_map_update_elem<'a, 'b, T, U>(
 ///
 /// See the [kernel documentation](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/uapi/linux/bpf.h#n1626)
 /// for more details.
+#[inline(always)]
 pub fn bpf_redirect_map<'a, 'b, U>(
     map: &'a BpfMapDef<u32, U>,
     key: &'b u32,
