@@ -111,7 +111,7 @@ Success Loading
 [link](https://github.com/uccidibuti/rebpf/tree/master/examples).
 
 ## Documentations
-[link](https://docs.rs/rebpf/0.1.3/rebpf/).
+[link](https://docs.rs/rebpf/0.1.4/rebpf/).
 
 ## About writing bpf programs in Rust
 To allows that bpf verifier accept your Rust bpf program you must be sure that in your source code all functions are inline and that you check all array access explicity with a if condition (you must check the array pointer address and not the slice length). Besides there are some Rust core/std functions that internally call #inline(never) functions (i.e. [SliceIndex](https://doc.rust-lang.org/src/core/slice/mod.rs.html#2747)) and there isn't away to force Rust compiler to compile these functions inline, so to fix this problem i have made a bash scripts [build.sh](./examples/empty_project/build.sh) and [remove_undefined_functions.sh](./examples/empty_project/remove_undefined_functions.sh) that automatically remove these functions from llvm-bytecode before compile to bpf-bytecode and then allow you to use Rust core functions writing bpf programs in Rust.     

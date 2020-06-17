@@ -19,12 +19,12 @@ rebpf is a Rust library built on top of libbpf (no bcc dependency) that allows t
 Add to your Cargo.toml:
 ```toml
 [dependencies]
-rebpf = "0.1.3"
+rebpf = "0.1.4"
 ```
 To create your first ebpf program with rebpf library you can copy and rename an [empty project template](https://github.com/uccidibuti/rebpf/tree/master/examples/empty_project) and edit it changing <your_project_name>/src/kern.rs and <your_project_name>/src/user.rs files.
 
 ## Documentations
-[link](https://docs.rs/rebpf/0.1.3/rebpf/).
+[link](https://docs.rs/rebpf/0.1.4/rebpf/).
 
 ## Requirements
 - A recent [linux kernel](https://github.com/iovisor/bcc/blob/master/docs/kernel-versions.md)
