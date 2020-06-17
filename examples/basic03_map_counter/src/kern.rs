@@ -9,7 +9,6 @@ use rebpf::{
     LICENSE,
     VERSION,
     rebpf_macro::{sec},
-//    rebpf_macro::{sec, import_panic_symbol},
     libbpf::{XdpAction, XdpMd},
     bpf::maps::{PerCpuArray, LookupMut},
 };
@@ -24,8 +23,6 @@ pub static _version: u32 = VERSION;
 #[sec("maps")]
 pub static xdp_stats_map: PerCpuArray<DataRec> = PerCpuArray::new(MAX_ENTRIES);
 // pub static xdp_stats_map: Array<DataRec> = Array::new(MAX_ENTRIES);
-
-//import_panic_symbol!();
 
 #[sec("xdp_stats1")]
 pub fn _xdp_stats1_func(_ctx: &XdpMd) -> XdpAction {
