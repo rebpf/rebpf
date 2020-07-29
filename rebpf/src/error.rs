@@ -1,11 +1,17 @@
+use thiserror::Error;
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
+    #[error("libbpf-related error: {0} ({1:?})")]
     Libbpf(String, LibbpfError),
+    #[error("Generic programming error: {0:?}")]
     Generic(GenericError),
+    #[error("Invalid BPF program name")]
     InvalidProgName,
+    #[error("Invalid BPF map name")]
     InvalidMapName,
+    #[error("Custom error: {0}")]
     Custom(String),
 }
 
