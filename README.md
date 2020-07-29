@@ -21,7 +21,12 @@ Copy this content in <your_project_name>/src/kern.rs:
 
 ```rust
 #![no_std]
-use rebpf::{rebpf::XdpAction, LICENSE, VERSION, rebpf_macro::sec, rebpf::XdpMd};
+use rebpf::{
+    LICENSE,
+    VERSION,
+    rebpf_macro::{sec},
+    libbpf::{XdpAction, XdpMd},
+};
 
 #[sec("license")]
 pub static _license: [u8; 4] = LICENSE;
