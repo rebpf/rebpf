@@ -4,9 +4,9 @@
 // (c) Lorenzo Vannucci
 
 use clap::{App, Arg};
-use rebpf::maps::Lookup;
+//use rebpf::maps::Lookup;
 //use rebpf::userspace::maps::Array;
-use rebpf::userspace::maps::PerCpuArray;
+use rebpf::userspace::maps::{PerCpuArray, Lookup};
 use rebpf::{error as rebpf_error, interface, libbpf};
 use std::path::Path;
 //use std::sync::atomic::Ordering::Relaxed;
