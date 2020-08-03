@@ -588,14 +588,9 @@ pub fn bpf_set_link_xdp_fd(
     bpf_fd: Option<&BpfProgFd>,
     xdp_flags: XdpFlags,
 ) -> Result<()> {
-    let err = unsafe {
-        if bpf_fd.is_some() {
-            let bpf_fd = bpf_fd.unwrap();
-            libbpf_sys::bpf_set_link_xdp_fd(interface.ifindex as i32, bpf_fd.fd, xdp_flags.bits())
-        } else {
-            libbpf_sys::bpf_set_link_xdp_fd(interface.ifindex as i32, -1, xdp_flags.bits())
-        }
-    };
+    let fd = bpf_fd.map_or(-1, |f| f.fd);
+    let err =
+        unsafe { libbpf_sys::bpf_set_link_xdp_fd(interface.ifindex as i32, fd, xdp_flags.bits()) };
     if err < 0 {
         return map_libbpf_error(function_name!(), LibbpfError::LibbpfSys(err));
     }
