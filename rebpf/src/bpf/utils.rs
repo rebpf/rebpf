@@ -8,7 +8,7 @@ use crate::error::{Error, GenericError, Result};
 #[allow(unused)]
 #[inline(always)]
 pub fn get_unsafe_slice_range(slice: &[u8], begin: usize, end: usize) -> &[u8] {
-    unsafe { std::slice::from_raw_parts(slice.as_ptr().offset(begin as isize), end - begin) }
+    unsafe { std::slice::from_raw_parts(slice.as_ptr().add(begin), end - begin) }
 }
 
 /*
