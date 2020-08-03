@@ -20,6 +20,7 @@ userspace = []
 [dependencies]
 rebpf-macro = { version = "0.1.1", path = "../rebpf-macro" }
 libbpf-sys = "0.0.7-1"
+maybe-uninit = "2.0"
 libc = "0.2.66"
 bitflags = "1.2"
 function_name = "0.2.0"

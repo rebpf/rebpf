@@ -5,7 +5,7 @@
 use crate::{
     error::{Error, LibbpfError, Result},
     interface,
-    layout::Layout,
+    layout::{Layout, ReadPointer, WritePointer},
     utils::*,
 };
 
@@ -370,25 +370,13 @@ pub fn bpf_prog_load(
 pub fn bpf_map_lookup_elem<K, V, L: Layout>(
     map_fd: &BpfMapFd<K, V, L>,
     key: &K,
-    value: &mut V,
-) -> Option<()> {
-    unsafe_bpf_map_lookup_elem(map_fd, key, value as *mut V)
-}
-
-#[cfg(feature = "userspace")]
-pub fn unsafe_bpf_map_lookup_elem<K, V, V2, L: Layout>(
-    map_fd: &BpfMapFd<K, V, L>,
-    key: &K,
-    value: *mut V2,
+    value: impl WritePointer<V, L>,
 ) -> Option<()> {
     let key_void_p = to_const_c_void(key);
-    let err = unsafe {
-        libbpf_sys::bpf_map_lookup_elem(map_fd.fd(), key_void_p, value as *mut raw::c_void)
-    };
-    if err != 0 {
-        return None;
+    match unsafe { libbpf_sys::bpf_map_lookup_elem(map_fd.fd(), key_void_p, value.get_ptr_mut()) } {
+        0 => Some(()),
+        _ => None,
     }
-    Some(())
 }
 
 /// Thin wrapper around libbpf's bpf_map_update_elem function.
@@ -396,11 +384,11 @@ pub fn unsafe_bpf_map_lookup_elem<K, V, V2, L: Layout>(
 pub fn bpf_map_update_elem<K, V, L: Layout>(
     map_fd: &BpfMapFd<K, V, L>,
     key: &K,
-    value: &V,
+    value: impl ReadPointer<V, L>,
     flags: BpfUpdateElemFlags,
 ) -> Result<()> {
     let key = to_const_c_void(key);
-    let value = to_const_c_void(value);
+    let value = value.get_ptr();
     match unsafe { libbpf_sys::bpf_map_update_elem(map_fd.fd(), key, value, flags.bits() as u64) } {
         0 => Ok(()),
         err => Err(Error::Libbpf(

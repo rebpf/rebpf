@@ -4,6 +4,8 @@ use crate::libbpf;
 use crate::libbpf::{BpfMapDef, BpfMapFd, BpfMapInfo, BpfMapType, BpfObject, BpfUpdateElemFlags};
 use crate::maps::*;
 
+use maybe_uninit::MaybeUninit;
+
 pub trait Lookup: Map {
     /// Lookup the map content associated with the given key.
     ///
@@ -106,7 +108,7 @@ macro_rules! impl_update_gen {
 
 macro_rules! impl_lookup {
     ($map_type:ident < $value:ident > ) => {
-        impl<$value: Default> Lookup for $map_type<$value> {
+        impl<$value> Lookup for $map_type<$value> {
             impl_lookup_gen!();
         }
     };
@@ -120,8 +122,9 @@ macro_rules! impl_lookup {
 macro_rules! impl_lookup_gen {
     () => {
         fn lookup(&self, key: &Self::Key) -> Option<Self::Value> {
-            let mut value: Self::Value = Default::default();
-            libbpf::bpf_map_lookup_elem(&self.fd, key, &mut value).map(move |_| value)
+            let mut value = maybe_uninit::MaybeUninit::uninit();
+            libbpf::bpf_map_lookup_elem(&self.fd, key, &mut value)
+                .map(|_| unsafe { value.assume_init() })
         }
     };
 }
@@ -136,33 +139,29 @@ impl_lookup!(Array<T>);
 
 use super::per_cpu::*;
 
+#[repr(transparent)]
 pub struct PerCpuArray<T> {
     fd: BpfMapFd<u32, T, PerCpuLayout>,
-    num_cpus: usize,
+}
+
+impl<T> PerCpuArray<T> {
+    map_impl!(BpfMapType::PERCPU_ARRAY);
 }
 
 impl<T> Map for PerCpuArray<T> {
     type Key = u32;
-    type Value = Vec<T>;
+    type Value = PerCpuBuffer<T>;
 }
 
-impl<T> PerCpuArray<T> {
-    pub fn from_obj(bpf_obj: &BpfObject, map_name: &str) -> Result<Self> {
-        let fd = extract_map_fd(bpf_obj, map_name)?;
-        let num_cpus = libbpf::libbpf_num_possible_cpus()? as usize;
-        Ok(Self { fd, num_cpus })
-    }
-    pub fn extract_info(&self) -> Result<BpfMapInfo> {
-        extract_checked_info(&self.fd, BpfMapType::PERCPU_ARRAY)
-    }
-}
+impl_update!(PerCpuArray<T>);
 
 impl<T> Lookup for PerCpuArray<T> {
-    fn lookup(&self, key: &Self::Key) -> Option<Vec<T>> {
-        let mut values: Vec<T> = Vec::with_capacity(self.num_cpus);
-        for _i in 0..self.num_cpus {
-            values.push(unsafe { std::mem::zeroed() });
+    fn lookup(&self, key: &Self::Key) -> Option<Self::Value> {
+        let mut buffer = PerCpuBuffer::new().ok()?;
+        unsafe {
+            libbpf::bpf_map_lookup_elem(&self.fd, key, &mut buffer)?;
+            buffer.mark_as_initialized();
         }
-        libbpf::unsafe_bpf_map_lookup_elem(&self.fd, key, values.as_mut_ptr()).map(move |_| values)
+        Some(buffer)
     }
 }
