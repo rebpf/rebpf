@@ -549,10 +549,10 @@ impl XdpMd {
     pub fn data_buffer(&self) -> Option<&[u8]> {
         unsafe {
             let data_buffer: *const u8 = self.0.data as usize as *const u8;
-            let data_buffer_size = (self.0.data_end - self.0.data) as usize;
-            if data_buffer_size <= 0 {
+            if self.0.data_end <= self.0.data {
                 return None;
             }
+            let data_buffer_size = (self.0.data_end - self.0.data) as usize;
             Some(std::slice::from_raw_parts(data_buffer, data_buffer_size))
         }
     }
