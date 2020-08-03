@@ -1,6 +1,7 @@
+#![allow(unused)]
+
 mod utils;
 
-#[allow(unused)]
 #[macro_use]
 extern crate function_name;
 
