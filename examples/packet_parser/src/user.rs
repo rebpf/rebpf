@@ -88,7 +88,7 @@ fn map_collect(bpf_map: &PerCpuArray<DataRec>, key: u32) -> Record {
                     v.last_dest_ipv4 = dest_ipv4;
                 }
                 v
-            },
+            }
             _ => panic!("Element not found in map"),
         },
         timestamp: std::time::Instant::now(),
@@ -110,13 +110,13 @@ fn stats_print(rec: &Record, prev: &Record) {
     );
 
     if packets > 0 {
-        println!("last source mac = {:?}, last destination mac = {:?}",
-                 rec.total.last_source_mac,
-                 rec.total.last_dest_mac,
+        println!(
+            "last source mac = {:?}, last destination mac = {:?}",
+            rec.total.last_source_mac, rec.total.last_dest_mac,
         );
-        println!("last source ipv4 = {:?}, last destination ipv4 = {:?}",
-                 rec.total.last_source_ipv4,
-                 rec.total.last_dest_ipv4,
+        println!(
+            "last source ipv4 = {:?}, last destination ipv4 = {:?}",
+            rec.total.last_source_ipv4, rec.total.last_dest_ipv4,
         );
     }
     println!("-------------------------------------------------");
