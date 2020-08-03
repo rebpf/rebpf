@@ -4,15 +4,15 @@ use crate::libbpf;
 use crate::libbpf::{BpfMapDef, BpfMapFd, BpfMapInfo, BpfMapType, BpfObject, BpfUpdateElemFlags};
 use crate::maps::*;
 
-pub trait Lookup<Value = <Self as Map>::Value>: Map {
+pub trait Lookup: Map {
     /// Lookup the map content associated with the given key.
     ///
     /// Note that the return value is a mere copy of said content.
-    fn lookup(&self, key: &Self::Key) -> Option<Value>;
+    fn lookup(&self, key: &Self::Key) -> Option<Self::Value>;
 
     /// Lookup the map content associated with the given key and if key
     /// is found copy content into value and return Some(()).
-    fn lookup_ref(&self, key: &Self::Key, value: &mut Value) -> Option<()>;
+    fn lookup_ref(&self, key: &Self::Key, value: &mut Self::Value) -> Option<()>;
 }
 
 macro_rules! map_impl {
@@ -151,7 +151,7 @@ pub struct PerCpuArray<T> {
 
 impl<T> Map for PerCpuArray<T> {
     type Key = u32;
-    type Value = T;
+    type Value = Vec<T>;
 }
 
 impl<T> PerCpuArray<T> {
@@ -165,7 +165,7 @@ impl<T> PerCpuArray<T> {
     }
 }
 
-impl<T> Lookup<Vec<T>> for PerCpuArray<T> {
+impl<T> Lookup for PerCpuArray<T> {
     fn lookup(&self, key: &Self::Key) -> Option<Vec<T>> {
         let mut values: Vec<T> = Vec::with_capacity(self.num_cpus);
         for _i in 0..self.num_cpus {
