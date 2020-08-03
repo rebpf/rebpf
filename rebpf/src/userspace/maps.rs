@@ -9,10 +9,6 @@ pub trait Lookup: Map {
     ///
     /// Note that the return value is a mere copy of said content.
     fn lookup(&self, key: &Self::Key) -> Option<Self::Value>;
-
-    /// Lookup the map content associated with the given key and if key
-    /// is found copy content into value and return Some(()).
-    fn lookup_ref(&self, key: &Self::Key, value: &mut Self::Value) -> Option<()>;
 }
 
 macro_rules! map_impl {
@@ -127,10 +123,6 @@ macro_rules! impl_lookup_gen {
             let mut value: Self::Value = Default::default();
             libbpf::bpf_map_lookup_elem(&self.fd, key, &mut value).map(move |_| value)
         }
-
-        fn lookup_ref(&self, key: &Self::Key, value: &mut Self::Value) -> Option<()> {
-            libbpf::bpf_map_lookup_elem(&self.fd, key, value)
-        }
     };
 }
 
@@ -172,12 +164,5 @@ impl<T> Lookup for PerCpuArray<T> {
             values.push(unsafe { std::mem::zeroed() });
         }
         libbpf::unsafe_bpf_map_lookup_elem(&self.fd, key, values.as_mut_ptr()).map(move |_| values)
-    }
-
-    fn lookup_ref(&self, key: &Self::Key, value: &mut Vec<T>) -> Option<()> {
-        if value.len() < self.num_cpus {
-            return None;
-        }
-        libbpf::unsafe_bpf_map_lookup_elem(&self.fd, key, value.as_mut_ptr())
     }
 }
