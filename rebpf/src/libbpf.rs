@@ -1,10 +1,11 @@
 //! This module contains a tiny safe wrapper of [libbpf](https://github.com/libbpf/libbpf)
-//! structs and functions. 
+//! structs and functions.
 
 #[cfg(feature = "userspace")]
 use crate::{
     error::{Error, LibbpfError, Result},
     interface,
+    layout::Layout,
     utils::*,
 };
 
@@ -206,14 +207,15 @@ pub struct BpfMap {
 pub type UnsafeBpfMapFd = BpfFdImpl<BpfMapInfo, libbpf_sys::bpf_map_info>;
 
 #[cfg(feature = "userspace")]
-pub struct BpfMapFd<T, U> {
+pub struct BpfMapFd<Key, Value, LayoutTy: Layout> {
     map_fd: UnsafeBpfMapFd,
-    _key_ty: std::marker::PhantomData<T>,
-    _value_ty: std::marker::PhantomData<U>,
+    _key_ty: std::marker::PhantomData<Key>,
+    _value_ty: std::marker::PhantomData<Value>,
+    _scalar_marker_ty: std::marker::PhantomData<LayoutTy>,
 }
 
 #[cfg(feature = "userspace")]
-impl<T, U> BpfMapFd<T, U> {
+impl<K, V, L: Layout> BpfMapFd<K, V, L> {
     pub fn new(fd: raw::c_int) -> Self {
         BpfMapFd {
             map_fd: UnsafeBpfMapFd {
@@ -222,12 +224,13 @@ impl<T, U> BpfMapFd<T, U> {
             },
             _key_ty: std::marker::PhantomData,
             _value_ty: std::marker::PhantomData,
+            _scalar_marker_ty: std::marker::PhantomData,
         }
     }
 }
 
 #[cfg(feature = "userspace")]
-impl<T, U> BpfFd for BpfMapFd<T, U> {
+impl<K, V, L: Layout> BpfFd for BpfMapFd<K, V, L> {
     type BpfInfoType = BpfMapInfo;
     fn fd(&self) -> raw::c_int {
         self.map_fd.fd()
@@ -364,15 +367,19 @@ pub fn bpf_prog_load(
 }
 
 #[cfg(feature = "userspace")]
-pub fn bpf_map_lookup_elem<T, U>(map_fd: &BpfMapFd<T, U>, key: &T, value: &mut U) -> Option<()> {
-    unsafe_bpf_map_lookup_elem(map_fd, key, value as *mut U)
+pub fn bpf_map_lookup_elem<K, V, L: Layout>(
+    map_fd: &BpfMapFd<K, V, L>,
+    key: &K,
+    value: &mut V,
+) -> Option<()> {
+    unsafe_bpf_map_lookup_elem(map_fd, key, value as *mut V)
 }
 
 #[cfg(feature = "userspace")]
-pub fn unsafe_bpf_map_lookup_elem<T, U, V>(
-    map_fd: &BpfMapFd<T, U>,
-    key: &T,
-    value: *mut V,
+pub fn unsafe_bpf_map_lookup_elem<K, V, V2, L: Layout>(
+    map_fd: &BpfMapFd<K, V, L>,
+    key: &K,
+    value: *mut V2,
 ) -> Option<()> {
     let key_void_p = to_const_c_void(key);
     let err = unsafe {
@@ -386,10 +393,10 @@ pub fn unsafe_bpf_map_lookup_elem<T, U, V>(
 
 /// Thin wrapper around libbpf's bpf_map_update_elem function.
 #[cfg(feature = "userspace")]
-pub fn bpf_map_update_elem<T, U>(
-    map_fd: &BpfMapFd<T, U>,
-    key: &T,
-    value: &U,
+pub fn bpf_map_update_elem<K, V, L: Layout>(
+    map_fd: &BpfMapFd<K, V, L>,
+    key: &K,
+    value: &V,
     flags: BpfUpdateElemFlags,
 ) -> Result<()> {
     let key = to_const_c_void(key);
@@ -435,10 +442,10 @@ pub fn bpf_object__find_map_by_name(bpf_object: &BpfObject, name: &str) -> Resul
 
 #[cfg(feature = "userspace")]
 #[allow(non_snake_case)]
-pub fn bpf_object__find_map_fd_by_name<T, U>(
+pub fn bpf_object__find_map_fd_by_name<K, V, L: Layout>(
     bpf_object: &BpfObject,
     name: &str,
-) -> Result<BpfMapFd<T, U>> {
+) -> Result<BpfMapFd<K, V, L>> {
     let name_cs = str_to_cstring(name)?;
     let bpf_map_fd =
         unsafe { libbpf_sys::bpf_object__find_map_fd_by_name(bpf_object.pobj, name_cs.as_ptr()) };
@@ -510,7 +517,7 @@ pub fn bpf_program__title(bpf_program: &BpfProgram) -> Result<String> {
 #[cfg(feature = "userspace")]
 #[allow(non_snake_case)]
 #[named]
-pub fn bpf_map__fd<T, U>(bpf_map: &BpfMap) -> Result<BpfMapFd<T, U>> {
+pub fn bpf_map__fd<K, V, L: Layout>(bpf_map: &BpfMap) -> Result<BpfMapFd<K, V, L>> {
     let fd = unsafe { libbpf_sys::bpf_map__fd(bpf_map.pmap) };
     if fd < 0 {
         return map_libbpf_error(function_name!(), LibbpfError::InvalidFd);

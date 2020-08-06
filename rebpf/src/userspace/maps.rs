@@ -1,4 +1,5 @@
 use crate::error::{Error, Result};
+use crate::layout::{Layout, ScalarLayout};
 use crate::libbpf;
 use crate::libbpf::{BpfMapDef, BpfMapFd, BpfMapInfo, BpfMapType, BpfObject, BpfUpdateElemFlags};
 use crate::maps::*;
@@ -26,12 +27,18 @@ macro_rules! map_impl {
     };
 }
 
-fn extract_map_fd<K, V>(bpf_obj: &BpfObject, map_name: &str) -> Result<BpfMapFd<K, V>> {
+fn extract_map_fd<K, V, L: Layout>(
+    bpf_obj: &BpfObject,
+    map_name: &str,
+) -> Result<BpfMapFd<K, V, L>> {
     let bpf_map = libbpf::bpf_object__find_map_by_name(bpf_obj, map_name)?;
     libbpf::bpf_map__fd(&bpf_map)
 }
 
-fn extract_checked_info<K, V>(map_fd: &BpfMapFd<K, V>, map_type: BpfMapType) -> Result<BpfMapInfo> {
+fn extract_checked_info<K, V, L: Layout>(
+    map_fd: &BpfMapFd<K, V, L>,
+    map_type: BpfMapType,
+) -> Result<BpfMapInfo> {
     let info = libbpf::bpf_obj_get_info_by_fd(map_fd)?;
     if info.matches_map_def::<K, V>(&BpfMapDef::new(map_type, 0)) {
         Ok(info)
@@ -52,7 +59,7 @@ macro_rules! map_def {
         #[repr(transparent)]
         $(#[$outer])*
         pub struct $map_type<$key, $value> {
-            fd: BpfMapFd<$key, $value>,
+            fd: BpfMapFd<$key, $value, ScalarLayout>,
         }
         impl<$key, $value> $map_type<$key, $value> { map_impl! {$map_type<$key, $value>: $type_const} }
         impl<$key, $value> Map for $map_type<$key, $value> { type Key = $key; type Value = $value; }
@@ -62,7 +69,7 @@ macro_rules! map_def {
         #[repr(transparent)]
         $(#[$outer])*
         pub struct $map_type <$value> {
-            fd: BpfMapFd<u32, $value>,
+            fd: BpfMapFd<u32, $value, ScalarLayout>,
         }
         impl<$value> $map_type<$value> { map_impl!($type_const); }
         impl<$value> Map for $map_type<$value> { type Key = u32; type Value = $value; }
@@ -72,7 +79,7 @@ macro_rules! map_def {
         #[repr(transparent)]
         $(#[$outer])*
         pub struct $map_type {
-            fd: BpfMapFd<u32, u32>,
+            fd: BpfMapFd<u32, u32, ScalarLayout>,
         }
         impl $map_type { map_impl!($type_const); }
         impl Map for $map_type { type Key = u32; type Value = u32; }
@@ -135,8 +142,10 @@ map_def!(struct Array<T>: BpfMapType::ARRAY);
 impl_update!(Array<T>);
 impl_lookup!(Array<T>);
 
+use super::per_cpu::*;
+
 pub struct PerCpuArray<T> {
-    fd: BpfMapFd<u32, T>,
+    fd: BpfMapFd<u32, T, PerCpuLayout>,
     num_cpus: usize,
 }
 
