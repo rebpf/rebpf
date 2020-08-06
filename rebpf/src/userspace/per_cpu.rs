@@ -62,3 +62,78 @@ unsafe impl<T> WritePointer<T, PerCpuLayout> for &mut PerCpuBuffer<T> {
         self.data.as_mut_ptr() as *mut raw::c_void
     }
 }
+
+impl<'a, Elt: 'a + Clone> std::iter::FromIterator<&'a Elt> for PerCpuBuffer<Elt> {
+    /// # Panics
+    ///
+    /// This function will panic if the iterator holds a number of item different than the
+    /// detected number of CPUs. See `rebpf::libbpf::libbpf_num_possible_cpus`.
+    fn from_iter<It: IntoIterator<Item = &'a Elt>>(iter: It) -> Self {
+        let iter = iter.into_iter();
+        let mut ret = PerCpuBuffer::<Elt>::new().expect("Couldn't allocate a per-CPU buffer");
+        let mut added = 0;
+        for (i, item) in iter.enumerate() {
+            assert!(
+                i < ret.nb_elements,
+                "There are more elements than expected."
+            );
+            unsafe {
+                let dst = ret
+                    .data
+                    .as_mut_ptr()
+                    .add(i * PerCpuBuffer::<Elt>::element_size())
+                    as *mut Elt;
+                std::ptr::write(dst, item.clone())
+            }
+            added += 1;
+        }
+        assert!(
+            added == ret.nb_elements,
+            "There weren't enough elements to fill the buffer."
+        );
+        ret
+    }
+}
+
+impl<'a, T: Sized> IntoIterator for &'a PerCpuBuffer<T> {
+    type Item = &'a T;
+    type IntoIter = PerCpuIterator<'a, T>;
+
+    /// # Panics
+    ///
+    /// Will panic if the buffer hasn't been initialized. This is typically a sign of
+    /// a bug within the `rebpf` code itself.
+    fn into_iter(self) -> Self::IntoIter {
+        assert!(self.initialized, "The buffer wasn't marked as initialized.");
+        PerCpuIterator::new(self)
+    }
+}
+
+pub struct PerCpuIterator<'a, T> {
+    buffer: &'a PerCpuBuffer<T>,
+    next_item: usize,
+    size: usize,
+}
+
+impl<'a, T> PerCpuIterator<'a, T> {
+    fn new(buffer: &PerCpuBuffer<T>) -> PerCpuIterator<T> {
+        PerCpuIterator {
+            buffer,
+            next_item: 0,
+            size: buffer.data.len() / PerCpuBuffer::<T>::element_size(),
+        }
+    }
+}
+
+impl<'a, T> Iterator for PerCpuIterator<'a, T> {
+    type Item = &'a T;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.next_item >= self.size {
+            None
+        } else {
+            let offset = PerCpuBuffer::<T>::element_size() * self.next_item;
+            self.next_item += 1;
+            Some(unsafe { std::mem::transmute::<&'a u8, &'a T>(&self.buffer.data[offset]) })
+        }
+    }
+}
