@@ -1,5 +1,5 @@
 use crate::error::{Error, Result};
-use crate::layout::{Layout, ScalarLayout};
+use crate::layout::*;
 use crate::libbpf;
 use crate::libbpf::{BpfMapDef, BpfMapFd, BpfMapInfo, BpfMapType, BpfObject, BpfUpdateElemFlags};
 use crate::maps::*;
@@ -25,7 +25,7 @@ macro_rules! map_impl {
     };
 }
 
-fn extract_map_fd<K, V, L: Layout>(
+fn extract_map_fd<K, V, L: MapLayout>(
     bpf_obj: &BpfObject,
     map_name: &str,
 ) -> Result<BpfMapFd<K, V, L>> {
@@ -33,7 +33,7 @@ fn extract_map_fd<K, V, L: Layout>(
     libbpf::bpf_map__fd(&bpf_map)
 }
 
-fn extract_checked_info<K, V, L: Layout>(
+fn extract_checked_info<K, V, L: MapLayout>(
     map_fd: &BpfMapFd<K, V, L>,
     map_type: BpfMapType,
 ) -> Result<BpfMapInfo> {
@@ -41,10 +41,6 @@ fn extract_checked_info<K, V, L: Layout>(
     if info.matches_map_def::<K, V>(&BpfMapDef::new(map_type, 0)) {
         Ok(info)
     } else {
-        // Err(Error::Custom(
-        //     format!("id:{}, value_size:{}, type:{:?}, key_size:{}",
-        //             info.id(), info.value_size(), info.type_(), info.key_size())
-        // ))
         Err(Error::Custom(
             "The wrapper type doesn't match the map object".to_owned(),
         ))
@@ -137,8 +133,6 @@ map_def!(struct Array<T>: BpfMapType::ARRAY);
 impl_update!(Array<T>);
 impl_lookup!(Array<T>);
 
-use super::per_cpu::*;
-
 #[repr(transparent)]
 pub struct PerCpuArray<T> {
     fd: BpfMapFd<u32, T, PerCpuLayout>,
@@ -150,18 +144,24 @@ impl<T> PerCpuArray<T> {
 
 impl<T> Map for PerCpuArray<T> {
     type Key = u32;
-    type Value = PerCpuBuffer<T>;
+    type Value = Vec<PerCpuValue<T>>;
 }
 
 impl_update!(PerCpuArray<T>);
 
 impl<T> Lookup for PerCpuArray<T> {
     fn lookup(&self, key: &Self::Key) -> Option<Self::Value> {
-        let mut buffer = PerCpuBuffer::new().ok()?;
+        let mut buffer = Vec::with_capacity(*NB_CPUS);
         unsafe {
             libbpf::bpf_map_lookup_elem(&self.fd, key, &mut buffer)?;
-            buffer.mark_as_initialized();
+            let mut buffer = std::mem::ManuallyDrop::new(buffer);
+            // Sadly there is no efficient and safer way to change our Vec<MaybeUninit>
+            // into a Vec other than this.
+            Some(Vec::from_raw_parts(
+                buffer.as_mut_ptr() as *mut PerCpuValue<T>,
+                buffer.len(),
+                buffer.capacity(),
+            ))
         }
-        Some(buffer)
     }
 }
