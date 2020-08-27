@@ -68,6 +68,7 @@ fn map_collect(bpf_map: &PerCpuArray<DataRec>, key: u32) -> Record {
                 let mut dest_ipv4 = [0u8; 4];
                 let mut dest_mac = [0u8; 6];
                 for v in &values {
+                    let v: DataRec = *v.as_ref();
                     rx_packets += v.rx_packets;
                     if v.rx_packets > 0 {
                         count_cpu_rx_packets += 1;
@@ -78,7 +79,7 @@ fn map_collect(bpf_map: &PerCpuArray<DataRec>, key: u32) -> Record {
                         dest_ipv4 = v.last_dest_ipv4;
                     }
                 }
-                let mut v = values.first().unwrap().clone();
+                let mut v: DataRec = values.first().unwrap().as_ref().clone();
                 v.rx_packets = rx_packets;
                 if count_cpu_rx_packets > 0 {
                     v.packets_size = packets_size;

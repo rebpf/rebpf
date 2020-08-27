@@ -2,7 +2,7 @@ use crate::error::{Error, Result};
 use crate::layout::*;
 use crate::libbpf;
 use crate::libbpf::{BpfMapDef, BpfMapFd, BpfMapInfo, BpfMapType, BpfObject, BpfUpdateElemFlags};
-use crate::maps::*;
+pub use crate::maps::*;
 
 use maybe_uninit::MaybeUninit;
 
@@ -152,6 +152,9 @@ impl_update!(PerCpuArray<T>);
 impl<T> Lookup for PerCpuArray<T> {
     fn lookup(&self, key: &Self::Key) -> Option<Self::Value> {
         let mut buffer = Vec::with_capacity(*NB_CPUS);
+        for _i in 0..*NB_CPUS {
+            buffer.push(unsafe { maybe_uninit::MaybeUninit::uninit() });
+        }
         unsafe {
             libbpf::bpf_map_lookup_elem(&self.fd, key, &mut buffer)?;
             let mut buffer = std::mem::ManuallyDrop::new(buffer);

@@ -6,8 +6,8 @@ use crate::{
     error::Result,
     helpers::{bpf_map_lookup_elem, bpf_map_update_elem, bpf_redirect_map},
     libbpf::{BpfMapDef, BpfMapType, BpfUpdateElemFlags, XdpAction},
-    maps::*,
 };
+pub use crate::maps::*;
 
 macro_rules! map_new {
     ($map_type:path: $type_const:expr) => {
