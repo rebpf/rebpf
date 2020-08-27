@@ -1,5 +1,8 @@
+//! This module contains BPF high-level maps api that can
+//! be executed on userspace side.
+
 use crate::error::{Error, Result};
-use crate::layout::*;
+use crate::map_layout::*;
 use crate::libbpf;
 use crate::libbpf::{BpfMapDef, BpfMapFd, BpfMapInfo, BpfMapType, BpfObject, BpfUpdateElemFlags};
 pub use crate::maps::*;

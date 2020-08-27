@@ -5,7 +5,7 @@
 use crate::{
     error::{Error, LibbpfError, Result},
     interface,
-    layout::{MapLayout, ReadPointer, WritePointer},
+    map_layout::{MapLayout, ReadPointer, WritePointer},
     utils::*,
 };
 

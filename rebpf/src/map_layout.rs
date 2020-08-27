@@ -1,3 +1,6 @@
+//! This module contains a MapLayout definition. MapLayout allows to
+//! write and read values from bpf maps in a safe way.
+
 use lazy_static::lazy_static;
 use maybe_uninit::MaybeUninit;
 use std::os::raw;
