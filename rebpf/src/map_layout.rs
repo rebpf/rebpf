@@ -12,27 +12,27 @@ pub trait MapLayout {}
 /// Trait denoting a read access to an underlying memory storage
 /// organised according to a specific data layout.
 pub unsafe trait ReadPointer<T, L: MapLayout> {
-    fn get_ptr(self) -> *const raw::c_void;
+    fn get_ptr(&self) -> *const raw::c_void;
 }
 
 /// Trait denoting a write access to an underlying memory storage
 /// organised according to a specific data layout.
 pub unsafe trait WritePointer<T, L: MapLayout> {
-    fn get_ptr_mut(self) -> *mut raw::c_void;
+    fn get_ptr_mut(&mut self) -> *mut raw::c_void;
 }
 
 /// The simplest data layout, a single, scalar value.
 pub struct ScalarLayout;
 impl MapLayout for ScalarLayout {}
 
-unsafe impl<T> ReadPointer<T, ScalarLayout> for &T {
-    fn get_ptr(self) -> *const raw::c_void {
+unsafe impl<T> ReadPointer<T, ScalarLayout> for T {
+    fn get_ptr(&self) -> *const raw::c_void {
         self as *const T as *const raw::c_void
     }
 }
 
-unsafe impl<T> WritePointer<T, ScalarLayout> for &mut MaybeUninit<T> {
-    fn get_ptr_mut(self) -> *mut raw::c_void {
+unsafe impl<T> WritePointer<T, ScalarLayout> for MaybeUninit<T> {
+    fn get_ptr_mut(&mut self) -> *mut raw::c_void {
         self.as_mut_ptr() as *mut raw::c_void
     }
 }
@@ -66,15 +66,16 @@ impl<T> AsRef<T> for PerCpuValue<T> {
     }
 }
 
-unsafe impl<T> ReadPointer<T, PerCpuLayout> for &Vec<PerCpuValue<T>> {
-    fn get_ptr(self) -> *const raw::c_void {
+
+unsafe impl<T> ReadPointer<T, PerCpuLayout> for Vec<PerCpuValue<T>> {
+    fn get_ptr(&self) -> *const raw::c_void {
         assert!(self.len() == *NB_CPUS, "size mismatch");
         self.as_ptr() as *const raw::c_void
     }
 }
 
-unsafe impl<T> WritePointer<T, PerCpuLayout> for &mut Vec<MaybeUninit<PerCpuValue<T>>> {
-    fn get_ptr_mut(self) -> *mut raw::c_void {
+unsafe impl<T> WritePointer<T, PerCpuLayout> for Vec<MaybeUninit<PerCpuValue<T>>> {
+    fn get_ptr_mut(&mut self) -> *mut raw::c_void {
         assert!(self.len() == *NB_CPUS, "size mismatch");
         self.as_mut_ptr() as *mut raw::c_void
     }
