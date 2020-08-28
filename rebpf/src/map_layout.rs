@@ -45,7 +45,7 @@ impl MapLayout for PerCpuLayout {}
 
 /// Individual value wrapper for the PerCpuLayout
 #[repr(align(8))]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PerCpuValue<T>(T);
 
 lazy_static! {
