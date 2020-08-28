@@ -1,12 +1,12 @@
 [package]
 name = "rebpf"
 version = "0.1.4"
-authors = ["Lorenzo Vannucci <lorenzo@vannucci.io>"]
+authors = ["Lorenzo Vannucci <lorenzo@vannucci.io>", "Simon Chopin <s.chopin@alphalink.fr>"]
 edition = "2018"
 license = "MIT"
 documentation = "https://docs.rs/rebpf/"
 readme = "../README.md"
-repository = "https://github.com/uccidibuti/rebpf"
+repository = "https://github.com/rebpf/rebpf"
 description = """
 A ebpf library built on top of libbpf (no bcc dependency).
 """

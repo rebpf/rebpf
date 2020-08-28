@@ -6,8 +6,6 @@ rebpf is a Rust library built on top of libbpf (no bcc dependency) that allows t
 - High level ebpf api built on top of libbpf wrapper.
 - Parse packets in bpf programs using [pdu](https://github.com/uccidibuti/pdu), for more details see [packet_parser](../examples/packet_parser).
 
-**Author:** Lorenzo Vannucci \<lorenzo@vannucci.io\><br/>
-
 ## Source code overview
 - rebpf has "bpf" and "userspace" features in Cargo.toml, on default both are enabled but if you want use rebpf only to write bpf programs or bpf userspace loader you can choose only one of them.
 
@@ -19,12 +17,12 @@ rebpf is a Rust library built on top of libbpf (no bcc dependency) that allows t
 Add to your Cargo.toml:
 ```toml
 [dependencies]
-rebpf = "0.1.4"
+rebpf = "0.1.5"
 ```
 To create your first ebpf program with rebpf library you can copy and rename an [empty project template](https://github.com/uccidibuti/rebpf/tree/master/examples/empty_project) and edit it changing <your_project_name>/src/kern.rs and <your_project_name>/src/user.rs files.
 
 ## Documentations
-[link](https://docs.rs/rebpf/0.1.4/rebpf/).
+[link](https://docs.rs/rebpf/latest/rebpf/).
 
 ## Requirements
 - A recent [linux kernel](https://github.com/iovisor/bcc/blob/master/docs/kernel-versions.md)
