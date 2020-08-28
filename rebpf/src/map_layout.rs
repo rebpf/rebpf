@@ -85,6 +85,22 @@ unsafe impl<T> WritePointer<T, PerCpuLayout> for Vec<MaybeUninit<PerCpuValue<T>>
 mod test {
     use super::*;
     use std::mem::{align_of, size_of};
+
+    #[test]
+    fn percpu_value_roundtrip() {
+        // A standard type
+        assert_eq!(42, *PerCpuValue::from(42).as_ref());
+
+        // A bare type with no special trait whatsoever.
+        struct NoDerive {
+            content: usize,
+        };
+        assert_eq!(
+            42,
+            PerCpuValue::from(NoDerive { content: 42 }).as_ref().content
+        );
+    }
+
     #[test]
     fn layout_smaller_content() {
         assert_eq!(size_of::<PerCpuValue<u32>>(), 8);
