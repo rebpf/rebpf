@@ -1,6 +1,6 @@
 [package]
 name = "rebpf"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["Lorenzo Vannucci <lorenzo@vannucci.io>", "Simon Chopin <s.chopin@alphalink.fr>"]
 edition = "2018"
 license = "MIT"
