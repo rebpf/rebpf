@@ -9,6 +9,15 @@ use std::os::raw;
 /// expected by the BPF subsystem.
 pub trait MapLayout {}
 
+/// Shared trait to allocate a type that can serve as a valid
+/// BPF buffer for a given layout. Note that the allocated value
+/// will be valid for BPF use, but some mutations on it afterwards
+/// might render it unfit. See the implementation details for each type
+/// for more information.
+pub trait LayoutBuffer<T, L: MapLayout> {
+    fn allocate_buffer() -> Self;
+}
+
 /// Trait denoting a read access to an underlying memory storage
 /// organised according to a specific data layout.
 pub unsafe trait ReadPointer<T, L: MapLayout> {
@@ -25,9 +34,21 @@ pub unsafe trait WritePointer<T, L: MapLayout> {
 pub struct ScalarLayout;
 impl MapLayout for ScalarLayout {}
 
+impl<T: Default> LayoutBuffer<T, ScalarLayout> for T {
+    fn allocate_buffer() -> Self {
+        Default::default()
+    }
+}
+
 unsafe impl<T> ReadPointer<T, ScalarLayout> for T {
     fn get_ptr(&self) -> *const raw::c_void {
         self as *const T as *const raw::c_void
+    }
+}
+
+impl<T> LayoutBuffer<T, ScalarLayout> for MaybeUninit<T> {
+    fn allocate_buffer() -> Self {
+        MaybeUninit::uninit()
     }
 }
 
@@ -66,11 +87,28 @@ impl<T> AsRef<T> for PerCpuValue<T> {
     }
 }
 
+impl<T: Default> LayoutBuffer<T, PerCpuLayout> for Vec<PerCpuValue<T>> {
+    /// Resizing the returned Vec before using it as a ReadPointer will lead to a panic.
+    fn allocate_buffer() -> Self {
+        std::iter::repeat_with(Default::default)
+            .take(*NB_CPUS)
+            .collect()
+    }
+}
 
 unsafe impl<T> ReadPointer<T, PerCpuLayout> for Vec<PerCpuValue<T>> {
     fn get_ptr(&self) -> *const raw::c_void {
         assert!(self.len() == *NB_CPUS, "size mismatch");
         self.as_ptr() as *const raw::c_void
+    }
+}
+
+impl<T> LayoutBuffer<T, PerCpuLayout> for Vec<MaybeUninit<PerCpuValue<T>>> {
+    /// Resizing the returned Vec before using it as a ReadPointer will lead to a panic.
+    fn allocate_buffer() -> Self {
+        std::iter::repeat_with(MaybeUninit::uninit)
+            .take(*NB_CPUS)
+            .collect()
     }
 }
 
