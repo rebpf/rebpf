@@ -8,9 +8,6 @@ rebpf is a Rust library built on top of libbpf (no bcc dependency) that allows t
 
 For more details see [rebpf](./rebpf).
 
-## rebpf is not RedBPF
-Even if the distance of the name between rebpf and [RedBPF](https://github.com/redsift/redbpf) is very small, this library (rebpf) is a new indipendent project that has nothing to do with RedBPF Rust library.
-
 ## Usage
 To create your first ebpf program with rebpf library you can copy and rename an [empty_project template](./examples/empty_project) and edit it changing <your_project_name>/src/kern.rs and <your_project_name>/src/user.rs files.
 
