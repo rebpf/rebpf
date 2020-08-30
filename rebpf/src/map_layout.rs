@@ -3,6 +3,7 @@
 
 use lazy_static::lazy_static;
 use maybe_uninit::MaybeUninit;
+use std::ffi::c_void;
 use std::os::raw;
 
 /// Generic marker trait for the various types of data layout
@@ -18,16 +19,26 @@ pub trait LayoutBuffer<T, L: MapLayout> {
     fn allocate_buffer() -> Self;
 }
 
-/// Trait denoting a read access to an underlying memory storage
-/// organised according to a specific data layout.
-pub unsafe trait ReadPointer<T, L: MapLayout> {
-    fn get_ptr(&self) -> *const raw::c_void;
+pub trait PtrCheckedMut<T, L: MapLayout> {
+    /// Get a pointer to the beginning of the buffer to pass
+    /// to the BPF system calls for them to write into.
+    ///
+    /// # Panics
+    ///
+    /// This function may panic if the buffer doesn't hold the invariants
+    /// required by the layout.
+    fn ptr_checked_mut(&mut self) -> *mut c_void;
 }
 
-/// Trait denoting a write access to an underlying memory storage
-/// organised according to a specific data layout.
-pub unsafe trait WritePointer<T, L: MapLayout> {
-    fn get_ptr_mut(&mut self) -> *mut raw::c_void;
+pub trait PtrChecked<T, L: MapLayout> {
+    /// Get a pointer to the beginning of the buffer to pass
+    /// to the BPF system calls for them to read from.
+    ///
+    /// # Panics
+    ///
+    /// This function may panic if the buffer doesn't hold the invariants
+    /// required by the layout.
+    fn ptr_checked(&self) -> *const c_void;
 }
 
 /// The simplest data layout, a single, scalar value.
@@ -40,21 +51,21 @@ impl<T: Default> LayoutBuffer<T, ScalarLayout> for T {
     }
 }
 
-unsafe impl<T> ReadPointer<T, ScalarLayout> for T {
-    fn get_ptr(&self) -> *const raw::c_void {
-        self as *const T as *const raw::c_void
-    }
-}
-
 impl<T> LayoutBuffer<T, ScalarLayout> for MaybeUninit<T> {
     fn allocate_buffer() -> Self {
         MaybeUninit::uninit()
     }
 }
 
-unsafe impl<T> WritePointer<T, ScalarLayout> for MaybeUninit<T> {
-    fn get_ptr_mut(&mut self) -> *mut raw::c_void {
-        self.as_mut_ptr() as *mut raw::c_void
+impl<T> PtrCheckedMut<T, ScalarLayout> for MaybeUninit<T> {
+    fn ptr_checked_mut(&mut self) -> *mut c_void {
+        self.as_mut_ptr() as *mut c_void
+    }
+}
+
+impl<T> PtrChecked<T, ScalarLayout> for T {
+    fn ptr_checked(&self) -> *const c_void {
+        self as *const T as *const c_void
     }
 }
 
@@ -96,13 +107,6 @@ impl<T: Default> LayoutBuffer<T, PerCpuLayout> for Vec<PerCpuValue<T>> {
     }
 }
 
-unsafe impl<T> ReadPointer<T, PerCpuLayout> for Vec<PerCpuValue<T>> {
-    fn get_ptr(&self) -> *const raw::c_void {
-        assert!(self.len() == *NB_CPUS, "size mismatch");
-        self.as_ptr() as *const raw::c_void
-    }
-}
-
 impl<T> LayoutBuffer<T, PerCpuLayout> for Vec<MaybeUninit<PerCpuValue<T>>> {
     /// Resizing the returned Vec before using it as a ReadPointer will lead to a panic.
     fn allocate_buffer() -> Self {
@@ -112,10 +116,17 @@ impl<T> LayoutBuffer<T, PerCpuLayout> for Vec<MaybeUninit<PerCpuValue<T>>> {
     }
 }
 
-unsafe impl<T> WritePointer<T, PerCpuLayout> for Vec<MaybeUninit<PerCpuValue<T>>> {
-    fn get_ptr_mut(&mut self) -> *mut raw::c_void {
+impl<T> PtrChecked<T, PerCpuLayout> for Vec<PerCpuValue<T>> {
+    fn ptr_checked(&self) -> *const c_void {
         assert!(self.len() == *NB_CPUS, "size mismatch");
-        self.as_mut_ptr() as *mut raw::c_void
+        self.as_ptr() as *const c_void
+    }
+}
+
+impl<T> PtrCheckedMut<T, PerCpuLayout> for Vec<MaybeUninit<PerCpuValue<T>>> {
+    fn ptr_checked_mut(&mut self) -> *mut c_void {
+        assert!(self.len() == *NB_CPUS, "size mismatch");
+        self.as_mut_ptr() as *mut c_void
     }
 }
 

@@ -5,7 +5,7 @@
 use crate::{
     error::{Error, LibbpfError, Result},
     interface,
-    map_layout::{MapLayout, ReadPointer, WritePointer},
+    map_layout::{MapLayout, PtrChecked, PtrCheckedMut},
     utils::*,
 };
 
@@ -370,10 +370,12 @@ pub fn bpf_prog_load(
 pub fn bpf_map_lookup_elem<K, V, L: MapLayout>(
     map_fd: &BpfMapFd<K, V, L>,
     key: &K,
-    value: &mut impl WritePointer<V, L>,
+    value: &mut impl PtrCheckedMut<V, L>,
 ) -> Option<()> {
     let key_void_p = to_const_c_void(key);
-    match unsafe { libbpf_sys::bpf_map_lookup_elem(map_fd.fd(), key_void_p, value.get_ptr_mut()) } {
+    match unsafe {
+        libbpf_sys::bpf_map_lookup_elem(map_fd.fd(), key_void_p, value.ptr_checked_mut())
+    } {
         0 => Some(()),
         _ => None,
     }
@@ -384,12 +386,13 @@ pub fn bpf_map_lookup_elem<K, V, L: MapLayout>(
 pub fn bpf_map_update_elem<K, V, L: MapLayout>(
     map_fd: &BpfMapFd<K, V, L>,
     key: &K,
-    value: &impl ReadPointer<V, L>,
+    value: &impl PtrChecked<V, L>,
     flags: BpfUpdateElemFlags,
 ) -> Result<()> {
     let key = to_const_c_void(key);
-    let value = value.get_ptr();
-    match unsafe { libbpf_sys::bpf_map_update_elem(map_fd.fd(), key, value, flags.bits() as u64) } {
+    match unsafe {
+        libbpf_sys::bpf_map_update_elem(map_fd.fd(), key, value.ptr_checked(), flags.bits() as u64)
+    } {
         0 => Ok(()),
         err => Err(Error::Libbpf(
             "Map update error".to_owned(),
