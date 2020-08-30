@@ -5,10 +5,28 @@ use crate::error::{Error, Result};
 use crate::libbpf;
 use crate::libbpf::{BpfMapDef, BpfMapFd, BpfMapInfo, BpfMapType, BpfObject, BpfUpdateElemFlags};
 use crate::map_layout::*;
-pub use crate::maps::*;
 
 use maybe_uninit::MaybeUninit;
 
+/// This trait is implemented by all the map wrapper types, as
+/// as convenient way to communicate their underlying types to the
+/// Rust type system.
+pub trait Map {
+    type Key;
+    type Value;
+}
+
+pub trait Update: Map {
+    /// Update a value inside the map.
+    ///
+    /// This operation is considered as atomic.
+    fn update<'a>(
+        &'a mut self,
+        key: &Self::Key,
+        value: &Self::Value,
+        flags: BpfUpdateElemFlags,
+    ) -> Result<()>;
+}
 pub trait Lookup: Map {
     /// Lookup the map content associated with the given key.
     ///

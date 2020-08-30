@@ -21,7 +21,6 @@ pub use rebpf_macro;
 
 pub mod error;
 pub mod libbpf;
-mod maps;
 
 #[cfg(feature = "bpf")]
 pub mod bpf;
