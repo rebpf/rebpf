@@ -69,22 +69,10 @@ impl<T> PtrChecked<T, ScalarLayout> for T {
     }
 }
 
-/// Memory layout matching per-CPU values, with its specificities.
-/// Notably, the kernel rounds up the size of an individual value to a multiple
-/// of 8, which means we cannot use a simple packed layout as in a Vec.
-pub struct PerCpuLayout;
-impl MapLayout for PerCpuLayout {}
-
 /// Individual value wrapper for the PerCpuLayout
 #[repr(align(8))]
 #[derive(Debug, Default)]
 pub struct PerCpuValue<T>(T);
-
-lazy_static! {
-    pub(crate) static ref NB_CPUS: usize = crate::libbpf::libbpf_num_possible_cpus()
-        .expect("Couldn't get the number of CPUs from BPF")
-        as usize;
-}
 
 impl<T> From<T> for PerCpuValue<T> {
     fn from(v: T) -> Self {
@@ -102,7 +90,7 @@ impl<T: Default> LayoutBuffer<T, PerCpuLayout> for Vec<PerCpuValue<T>> {
     /// Resizing the returned Vec before using it as a ReadPointer will lead to a panic.
     fn allocate_buffer() -> Self {
         std::iter::repeat_with(Default::default)
-            .take(*NB_CPUS)
+            .take(PerCpuLayout::nb_cpus())
             .collect()
     }
 }
@@ -111,21 +99,38 @@ impl<T> LayoutBuffer<T, PerCpuLayout> for Vec<MaybeUninit<PerCpuValue<T>>> {
     /// Resizing the returned Vec before using it as a ReadPointer will lead to a panic.
     fn allocate_buffer() -> Self {
         std::iter::repeat_with(MaybeUninit::uninit)
-            .take(*NB_CPUS)
+            .take(PerCpuLayout::nb_cpus())
             .collect()
+    }
+}
+
+/// Memory layout matching per-CPU values, with its specificities.
+/// Notably, the kernel rounds up the size of an individual value to a multiple
+/// of 8, which means we cannot use a simple packed layout as in a Vec.
+pub struct PerCpuLayout;
+
+lazy_static! {
+    pub(crate) static ref NB_CPUS: usize = crate::libbpf::libbpf_num_possible_cpus()
+        .expect("Couldn't get the number of CPUs from BPF")
+        as usize;
+}
+
+impl PerCpuLayout {
+    fn nb_cpus() -> usize {
+        *NB_CPUS
     }
 }
 
 impl<T> PtrChecked<T, PerCpuLayout> for Vec<PerCpuValue<T>> {
     fn ptr_checked(&self) -> *const c_void {
-        assert!(self.len() == *NB_CPUS, "size mismatch");
+        assert!(self.len() == PerCpuLayout::nb_cpus(), "size mismatch");
         self.as_ptr() as *const c_void
     }
 }
 
 impl<T> PtrCheckedMut<T, PerCpuLayout> for Vec<MaybeUninit<PerCpuValue<T>>> {
     fn ptr_checked_mut(&mut self) -> *mut c_void {
-        assert!(self.len() == *NB_CPUS, "size mismatch");
+        assert!(self.len() == PerCpuLayout::nb_cpus(), "size mismatch");
         self.as_mut_ptr() as *mut c_void
     }
 }
