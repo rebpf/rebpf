@@ -6,20 +6,7 @@ use maybe_uninit::MaybeUninit;
 use std::ffi::c_void;
 use std::os::raw;
 
-/// Generic marker trait for the various types of data layout
-/// expected by the BPF subsystem.
-pub trait MapLayout {}
-
-/// Shared trait to allocate a type that can serve as a valid
-/// BPF buffer for a given layout. Note that the allocated value
-/// will be valid for BPF use, but some mutations on it afterwards
-/// might render it unfit. See the implementation details for each type
-/// for more information.
-pub trait LayoutBuffer<T, L: MapLayout> {
-    fn allocate_buffer() -> Self;
-}
-
-pub trait PtrCheckedMut<T, L: MapLayout> {
+pub trait PtrCheckedMut<T, L: MapLayout<T> + ?Sized> {
     /// Get a pointer to the beginning of the buffer to pass
     /// to the BPF system calls for them to write into.
     ///
@@ -30,7 +17,7 @@ pub trait PtrCheckedMut<T, L: MapLayout> {
     fn ptr_checked_mut(&mut self) -> *mut c_void;
 }
 
-pub trait PtrChecked<T, L: MapLayout> {
+pub trait PtrChecked<T, L: MapLayout<T> + ?Sized> {
     /// Get a pointer to the beginning of the buffer to pass
     /// to the BPF system calls for them to read from.
     ///
@@ -41,19 +28,66 @@ pub trait PtrChecked<T, L: MapLayout> {
     fn ptr_checked(&self) -> *const c_void;
 }
 
-/// The simplest data layout, a single, scalar value.
-pub struct ScalarLayout;
-impl MapLayout for ScalarLayout {}
+/// Generic marker trait for the various types of data layout
+/// expected by the BPF subsystem.
+pub trait MapLayout<T> {
+    /// The canonical buffer form for this layout
+    type Buffer: PtrChecked<T, Self>;
+    /// A buffer that can be written into from unsafe code.
+    /// Usually a close relative of Buffer with some MaybeUninit wrapping
+    type WritableBuffer: PtrCheckedMut<T, Self>;
 
-impl<T: Default> LayoutBuffer<T, ScalarLayout> for T {
-    fn allocate_buffer() -> Self {
-        Default::default()
-    }
+    /// Initialize a buffer that can directly be read by the BPF calls expecting
+    /// this layout. The contents of the buffer will be initialized via the
+    /// `value_gen` callback, which may be called multiple times depending on the
+    /// particular layout.
+    ///
+    /// This function is not expected to panic.
+    fn allocate(value_gen: impl FnMut() -> T) -> Self::Buffer;
+
+    /// Create a Rust-side buffer that obeys the layout requirements for
+    /// this layout, with uninitialized contents. Use the `transmute` function
+    /// after the BPF call to change it into a form that can be used from Rust code.
+    ///
+    /// This function is not expected to panic.
+    fn allocate_write() -> Self::WritableBuffer;
+
+    /// Transmute a `WritableBuffer` into its `Buffer` equivalent to be able to
+    /// read and modify its content safely from the Rust side.
+    ///
+    /// # Safety
+    ///
+    /// The caller must make sure that the contents of the buffer have actually
+    /// been written into valid values, for instance via a successful
+    /// `bpf_map_lookup_elem` call.
+    ///
+    /// # Panics
+    ///
+    /// This function is allowed to panic, see the details on the particular
+    /// implementations
+    unsafe fn transmute(buffer: Self::WritableBuffer) -> Self::Buffer;
 }
 
-impl<T> LayoutBuffer<T, ScalarLayout> for MaybeUninit<T> {
-    fn allocate_buffer() -> Self {
+/// The simplest data layout, a single, scalar value.
+/// Used by the most basic BPF maps, such as the Array and HashMap
+pub struct ScalarLayout;
+impl<T> MapLayout<T> for ScalarLayout {
+    type WritableBuffer = MaybeUninit<T>;
+    type Buffer = T;
+
+    fn allocate(mut value_gen: impl FnMut() -> T) -> Self::Buffer {
+        value_gen()
+    }
+
+    fn allocate_write() -> Self::WritableBuffer {
         MaybeUninit::uninit()
+    }
+
+    /// # Panics
+    ///
+    /// This function will not panic.
+    unsafe fn transmute(buffer: Self::WritableBuffer) -> Self::Buffer {
+        buffer.assume_init()
     }
 }
 
@@ -86,24 +120,6 @@ impl<T> AsRef<T> for PerCpuValue<T> {
     }
 }
 
-impl<T: Default> LayoutBuffer<T, PerCpuLayout> for Vec<PerCpuValue<T>> {
-    /// Resizing the returned Vec before using it as a ReadPointer will lead to a panic.
-    fn allocate_buffer() -> Self {
-        std::iter::repeat_with(Default::default)
-            .take(PerCpuLayout::nb_cpus())
-            .collect()
-    }
-}
-
-impl<T> LayoutBuffer<T, PerCpuLayout> for Vec<MaybeUninit<PerCpuValue<T>>> {
-    /// Resizing the returned Vec before using it as a ReadPointer will lead to a panic.
-    fn allocate_buffer() -> Self {
-        std::iter::repeat_with(MaybeUninit::uninit)
-            .take(PerCpuLayout::nb_cpus())
-            .collect()
-    }
-}
-
 /// Memory layout matching per-CPU values, with its specificities.
 /// Notably, the kernel rounds up the size of an individual value to a multiple
 /// of 8, which means we cannot use a simple packed layout as in a Vec.
@@ -118,6 +134,37 @@ lazy_static! {
 impl PerCpuLayout {
     fn nb_cpus() -> usize {
         *NB_CPUS
+    }
+}
+
+impl<T> MapLayout<T> for PerCpuLayout {
+    type Buffer = Vec<PerCpuValue<T>>;
+    type WritableBuffer = Vec<MaybeUninit<PerCpuValue<T>>>;
+    fn allocate(mut value_gen: impl FnMut() -> T) -> Self::Buffer {
+        std::iter::repeat_with(|| PerCpuValue(value_gen()))
+            .take(Self::nb_cpus())
+            .collect::<Vec<_>>()
+    }
+
+    fn allocate_write() -> Self::WritableBuffer {
+        std::iter::repeat_with(MaybeUninit::uninit)
+            .take(Self::nb_cpus())
+            .collect::<Vec<_>>()
+    }
+
+    /// # Panics
+    ///
+    /// This will panic if the input buffer hasn't a size exactly equal to the
+    /// number of CPUs on the system, as exposed via `PerCpuLayout::nb_cpus()`
+    unsafe fn transmute(buffer: Self::WritableBuffer) -> Self::Buffer {
+        assert!(buffer.len() == Self::nb_cpus(), "size mismatch");
+        let mut buffer = std::mem::ManuallyDrop::new(buffer);
+        // Transmute the underlying data into initialized types
+        Vec::from_raw_parts(
+            buffer.as_mut_ptr() as *mut PerCpuValue<T>,
+            buffer.len(),
+            buffer.capacity(),
+        )
     }
 }
 

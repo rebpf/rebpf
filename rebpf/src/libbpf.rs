@@ -207,7 +207,7 @@ pub struct BpfMap {
 pub type UnsafeBpfMapFd = BpfFdImpl<BpfMapInfo, libbpf_sys::bpf_map_info>;
 
 #[cfg(feature = "userspace")]
-pub struct BpfMapFd<Key, Value, MapLayoutTy: MapLayout> {
+pub struct BpfMapFd<Key, Value, MapLayoutTy: MapLayout<Value>> {
     map_fd: UnsafeBpfMapFd,
     _key_ty: std::marker::PhantomData<Key>,
     _value_ty: std::marker::PhantomData<Value>,
@@ -215,7 +215,7 @@ pub struct BpfMapFd<Key, Value, MapLayoutTy: MapLayout> {
 }
 
 #[cfg(feature = "userspace")]
-impl<K, V, L: MapLayout> BpfMapFd<K, V, L> {
+impl<K, V, L: MapLayout<V>> BpfMapFd<K, V, L> {
     pub fn new(fd: raw::c_int) -> Self {
         BpfMapFd {
             map_fd: UnsafeBpfMapFd {
@@ -230,7 +230,7 @@ impl<K, V, L: MapLayout> BpfMapFd<K, V, L> {
 }
 
 #[cfg(feature = "userspace")]
-impl<K, V, L: MapLayout> BpfFd for BpfMapFd<K, V, L> {
+impl<K, V, L: MapLayout<V>> BpfFd for BpfMapFd<K, V, L> {
     type BpfInfoType = BpfMapInfo;
     fn fd(&self) -> raw::c_int {
         self.map_fd.fd()
@@ -367,7 +367,7 @@ pub fn bpf_prog_load(
 }
 
 #[cfg(feature = "userspace")]
-pub fn bpf_map_lookup_elem<K, V, L: MapLayout>(
+pub fn bpf_map_lookup_elem<K, V, L: MapLayout<V>>(
     map_fd: &BpfMapFd<K, V, L>,
     key: &K,
     value: &mut impl PtrCheckedMut<V, L>,
@@ -383,7 +383,7 @@ pub fn bpf_map_lookup_elem<K, V, L: MapLayout>(
 
 /// Thin wrapper around libbpf's bpf_map_update_elem function.
 #[cfg(feature = "userspace")]
-pub fn bpf_map_update_elem<K, V, L: MapLayout>(
+pub fn bpf_map_update_elem<K, V, L: MapLayout<V>>(
     map_fd: &BpfMapFd<K, V, L>,
     key: &K,
     value: &impl PtrChecked<V, L>,
@@ -433,7 +433,7 @@ pub fn bpf_object__find_map_by_name(bpf_object: &BpfObject, name: &str) -> Resul
 
 #[cfg(feature = "userspace")]
 #[allow(non_snake_case)]
-pub fn bpf_object__find_map_fd_by_name<K, V, L: MapLayout>(
+pub fn bpf_object__find_map_fd_by_name<K, V, L: MapLayout<V>>(
     bpf_object: &BpfObject,
     name: &str,
 ) -> Result<BpfMapFd<K, V, L>> {
@@ -508,7 +508,7 @@ pub fn bpf_program__title(bpf_program: &BpfProgram) -> Result<String> {
 #[cfg(feature = "userspace")]
 #[allow(non_snake_case)]
 #[named]
-pub fn bpf_map__fd<K, V, L: MapLayout>(bpf_map: &BpfMap) -> Result<BpfMapFd<K, V, L>> {
+pub fn bpf_map__fd<K, V, L: MapLayout<V>>(bpf_map: &BpfMap) -> Result<BpfMapFd<K, V, L>> {
     let fd = unsafe { libbpf_sys::bpf_map__fd(bpf_map.pmap) };
     if fd < 0 {
         return map_libbpf_error(function_name!(), LibbpfError::InvalidFd);

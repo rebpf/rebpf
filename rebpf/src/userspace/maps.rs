@@ -46,7 +46,7 @@ macro_rules! map_impl {
     };
 }
 
-fn extract_map_fd<K, V, L: MapLayout>(
+fn extract_map_fd<K, V, L: MapLayout<V>>(
     bpf_obj: &BpfObject,
     map_name: &str,
 ) -> Result<BpfMapFd<K, V, L>> {
@@ -54,7 +54,7 @@ fn extract_map_fd<K, V, L: MapLayout>(
     libbpf::bpf_map__fd(&bpf_map)
 }
 
-fn extract_checked_info<K, V, L: MapLayout>(
+fn extract_checked_info<K, V, L: MapLayout<V>>(
     map_fd: &BpfMapFd<K, V, L>,
     map_type: BpfMapType,
 ) -> Result<BpfMapInfo> {
@@ -172,18 +172,10 @@ impl_update!(PerCpuArray<T>);
 
 impl<T> Lookup for PerCpuArray<T> {
     fn lookup(&self, key: &Self::Key) -> Option<Self::Value> {
-        let mut buffer: Vec<MaybeUninit<PerCpuValue<T>>> =
-            LayoutBuffer::<T, PerCpuLayout>::allocate_buffer();
+        let mut buffer = PerCpuLayout::allocate_write();
         unsafe {
-            libbpf::bpf_map_lookup_elem(&self.fd, key, &mut buffer)?;
-            let mut buffer = std::mem::ManuallyDrop::new(buffer);
-            // Sadly there is no efficient and safer way to change our Vec<MaybeUninit>
-            // into a Vec other than this.
-            Some(Vec::from_raw_parts(
-                buffer.as_mut_ptr() as *mut PerCpuValue<T>,
-                buffer.len(),
-                buffer.capacity(),
-            ))
+            libbpf::bpf_map_lookup_elem(&self.fd, key, &mut buffer)
+                .map(|_| PerCpuLayout::transmute(buffer))
         }
     }
 }
