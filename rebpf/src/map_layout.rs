@@ -138,18 +138,20 @@ impl PerCpuLayout {
 }
 
 impl<T> MapLayout<T> for PerCpuLayout {
-    type Buffer = Vec<PerCpuValue<T>>;
-    type WritableBuffer = Vec<MaybeUninit<PerCpuValue<T>>>;
+    type Buffer = Box<[PerCpuValue<T>]>;
+    type WritableBuffer = Box<[MaybeUninit<PerCpuValue<T>>]>;
     fn allocate(mut value_gen: impl FnMut() -> T) -> Self::Buffer {
         std::iter::repeat_with(|| PerCpuValue(value_gen()))
             .take(Self::nb_cpus())
             .collect::<Vec<_>>()
+            .into_boxed_slice()
     }
 
     fn allocate_write() -> Self::WritableBuffer {
         std::iter::repeat_with(MaybeUninit::uninit)
             .take(Self::nb_cpus())
             .collect::<Vec<_>>()
+            .into_boxed_slice()
     }
 
     /// # Panics
@@ -160,22 +162,22 @@ impl<T> MapLayout<T> for PerCpuLayout {
         assert!(buffer.len() == Self::nb_cpus(), "size mismatch");
         let mut buffer = std::mem::ManuallyDrop::new(buffer);
         // Transmute the underlying data into initialized types
-        Vec::from_raw_parts(
+        let transmuted = core::slice::from_raw_parts_mut(
             buffer.as_mut_ptr() as *mut PerCpuValue<T>,
             buffer.len(),
-            buffer.capacity(),
-        )
+        );
+        Box::from_raw(transmuted)
     }
 }
 
-impl<T> PtrChecked<T, PerCpuLayout> for Vec<PerCpuValue<T>> {
+impl<T> PtrChecked<T, PerCpuLayout> for Box<[PerCpuValue<T>]> {
     fn ptr_checked(&self) -> *const c_void {
         assert!(self.len() == PerCpuLayout::nb_cpus(), "size mismatch");
         self.as_ptr() as *const c_void
     }
 }
 
-impl<T> PtrCheckedMut<T, PerCpuLayout> for Vec<MaybeUninit<PerCpuValue<T>>> {
+impl<T> PtrCheckedMut<T, PerCpuLayout> for Box<[MaybeUninit<PerCpuValue<T>>]> {
     fn ptr_checked_mut(&mut self) -> *mut c_void {
         assert!(self.len() == PerCpuLayout::nb_cpus(), "size mismatch");
         self.as_mut_ptr() as *mut c_void

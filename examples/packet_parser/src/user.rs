@@ -67,7 +67,7 @@ fn map_collect(bpf_map: &PerCpuArray<DataRec>, key: u32) -> Record {
                 let mut source_ipv4 = [0u8; 4];
                 let mut dest_ipv4 = [0u8; 4];
                 let mut dest_mac = [0u8; 6];
-                for v in &values {
+                for v in values.as_ref() {
                     let v: DataRec = *v.as_ref();
                     rx_packets += v.rx_packets;
                     if v.rx_packets > 0 {

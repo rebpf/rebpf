@@ -165,7 +165,7 @@ impl<T> PerCpuArray<T> {
 
 impl<T> Map for PerCpuArray<T> {
     type Key = u32;
-    type Value = Vec<PerCpuValue<T>>;
+    type Value = Box<[PerCpuValue<T>]>;
 }
 
 impl_update!(PerCpuArray<T>);
