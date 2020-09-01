@@ -220,6 +220,29 @@ mod test {
     }
 
     #[test]
+    fn scalar_transmute() {
+        let src = MaybeUninit::new(42);
+        assert_eq!(42, unsafe { ScalarLayout::transmute(src) });
+    }
+
+    #[test]
+    fn percpu_transmute() {
+        let mut buffer = PerCpuLayout::allocate_write();
+        for i in 0..buffer.len() {
+            std::mem::swap(&mut buffer[i], &mut MaybeUninit::new(PerCpuValue(i)));
+        }
+
+        let buffer = unsafe { PerCpuLayout::transmute(buffer) };
+
+        assert_eq!(buffer.len(), PerCpuLayout::nb_cpus());
+        assert_eq!(*buffer[0].as_ref(), 0);
+        assert_eq!(
+            *buffer.last().unwrap().as_ref(),
+            PerCpuLayout::nb_cpus() - 1
+        );
+    }
+
+    #[test]
     #[should_panic(expected = "size mismatch")]
     fn percpu_read_too_small_buffer() {
         let too_small = std::iter::repeat_with(|| PerCpuValue(0u32))
