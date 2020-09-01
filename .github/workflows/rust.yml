@@ -11,10 +11,16 @@ env:
 
 jobs:
   build:
+    strategy:
+      matrix:
+        rust: [1.34.2, stable, nightly]
 
     runs-on: ubuntu-latest
 
     steps:
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        rust-version: ${{ matrix.rust }}
     - uses: actions/checkout@v2
     - name: Install dependencies
       run: sudo apt-get -y install libelf-dev
