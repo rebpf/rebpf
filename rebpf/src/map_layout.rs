@@ -196,6 +196,30 @@ mod test {
     use std::mem::{align_of, size_of};
 
     #[test]
+    fn percpu_allocate_write() {
+        let buffer = <PerCpuLayout as MapLayout<usize>>::allocate_write();
+        assert_eq!(buffer.len(), PerCpuLayout::nb_cpus());
+    }
+
+    #[test]
+    fn percpu_allocate() {
+        let mut i = 0;
+        let buffer = PerCpuLayout::allocate(|| {
+            let v = i;
+            i += 1;
+            v
+        });
+
+        assert_eq!(buffer.len(), PerCpuLayout::nb_cpus());
+        assert_eq!(i, PerCpuLayout::nb_cpus());
+        assert_eq!(*buffer[0].as_ref(), 0);
+        assert_eq!(
+            *buffer.last().unwrap().as_ref(),
+            PerCpuLayout::nb_cpus() - 1
+        );
+    }
+
+    #[test]
     #[should_panic(expected = "size mismatch")]
     fn percpu_read_too_small_buffer() {
         let too_small = std::iter::repeat_with(|| PerCpuValue(0u32))
