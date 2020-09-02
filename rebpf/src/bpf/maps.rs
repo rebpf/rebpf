@@ -7,7 +7,26 @@ use crate::{
     helpers::{bpf_map_lookup_elem, bpf_map_update_elem, bpf_redirect_map},
     libbpf::{BpfMapDef, BpfMapType, BpfUpdateElemFlags, XdpAction},
 };
-pub use crate::maps::*;
+
+/// This trait is implemented by all the map wrapper types, as
+/// as convenient way to communicate their underlying types to the
+/// Rust type system.
+pub trait Map {
+    type Key;
+    type Value;
+}
+
+pub trait Update: Map {
+    /// Update a value inside the map.
+    ///
+    /// This operation is considered as atomic.
+    fn update<'a>(
+        &'a mut self,
+        key: &Self::Key,
+        value: &Self::Value,
+        flags: BpfUpdateElemFlags,
+    ) -> Result<()>;
+}
 
 macro_rules! map_new {
     ($map_type:path: $type_const:expr) => {

@@ -5,15 +5,45 @@ use crate::error::{Error, Result};
 use crate::libbpf;
 use crate::libbpf::{BpfMapDef, BpfMapFd, BpfMapInfo, BpfMapType, BpfObject, BpfUpdateElemFlags};
 use crate::map_layout::*;
-pub use crate::maps::*;
 
 use maybe_uninit::MaybeUninit;
 
+/// This trait is implemented by all the map wrapper types, as
+/// as convenient way to communicate their underlying types to the
+/// Rust type system.
+pub trait Map {
+    type Key;
+    type Value;
+    type Layout: MapLayout<Self::Value>;
+
+    fn fd(&self) -> &BpfMapFd<Self::Key, Self::Value, Self::Layout>;
+}
+
+pub trait Update: Map {
+    /// Update a value inside the map.
+    ///
+    /// This operation is considered as atomic.
+    fn update<'a>(
+        &'a mut self,
+        key: &Self::Key,
+        value: &<<Self as Map>::Layout as MapLayout<Self::Value>>::Buffer,
+        flags: BpfUpdateElemFlags,
+    ) -> Result<()> {
+        libbpf::bpf_map_update_elem(&self.fd(), key, value, flags)
+    }
+}
 pub trait Lookup: Map {
     /// Lookup the map content associated with the given key.
     ///
     /// Note that the return value is a mere copy of said content.
-    fn lookup(&self, key: &Self::Key) -> Option<Self::Value>;
+    fn lookup(
+        &self,
+        key: &Self::Key,
+    ) -> Option<<<Self as Map>::Layout as MapLayout<Self::Value>>::Buffer> {
+        let mut buffer = Self::Layout::allocate_write();
+        libbpf::bpf_map_lookup_elem(&self.fd(), key, &mut buffer)
+            .map(|_| unsafe { Self::Layout::transmute(buffer) })
+    }
 }
 
 macro_rules! map_impl {
@@ -28,7 +58,7 @@ macro_rules! map_impl {
     };
 }
 
-fn extract_map_fd<K, V, L: MapLayout>(
+fn extract_map_fd<K, V, L: MapLayout<V>>(
     bpf_obj: &BpfObject,
     map_name: &str,
 ) -> Result<BpfMapFd<K, V, L>> {
@@ -36,7 +66,7 @@ fn extract_map_fd<K, V, L: MapLayout>(
     libbpf::bpf_map__fd(&bpf_map)
 }
 
-fn extract_checked_info<K, V, L: MapLayout>(
+fn extract_checked_info<K, V, L: MapLayout<V>>(
     map_fd: &BpfMapFd<K, V, L>,
     map_type: BpfMapType,
 ) -> Result<BpfMapInfo> {
@@ -52,43 +82,49 @@ fn extract_checked_info<K, V, L: MapLayout>(
 
 macro_rules! map_def {
     ($(#[$outer:meta])*
-    struct $map_type:ident < $key:ty, $value:ty >: $type_const:expr) => {
+    struct $map_type:ident < $key:ty, $value:ty, $layout:ty > : $type_const:expr) => {
         #[repr(transparent)]
         $(#[$outer])*
         pub struct $map_type<$key, $value> {
-            fd: BpfMapFd<$key, $value, ScalarLayout>,
+            fd: BpfMapFd<$key, $value, $layout>,
         }
         impl<$key, $value> $map_type<$key, $value> { map_impl! {$map_type<$key, $value>: $type_const} }
-        impl<$key, $value> Map for $map_type<$key, $value> { type Key = $key; type Value = $value; }
+        impl<$Key, $value> Map for $map_type<$key, $value> {
+            type Key = $key;
+            type Value = $value;
+            type Layout = $layout;
+            fn fd(&self) -> &BpfMapFd<$key, $value, $layout> {&self.fd}
+        }
     };
     ($(#[$outer:meta])*
-    struct $map_type:ident < $value:ident >: $type_const:expr) => {
+    struct $map_type:ident < $value:ident, $layout:ty > : $type_const:expr) => {
         #[repr(transparent)]
         $(#[$outer])*
         pub struct $map_type <$value> {
-            fd: BpfMapFd<u32, $value, ScalarLayout>,
+            fd: BpfMapFd<u32, $value, $layout>,
         }
         impl<$value> $map_type<$value> { map_impl!($type_const); }
-        impl<$value> Map for $map_type<$value> { type Key = u32; type Value = $value; }
+        impl<$value> Map for $map_type<$value> {
+            type Key = u32;
+            type Value = $value;
+            type Layout = $layout;
+            fn fd(&self) -> &BpfMapFd<u32, $value, $layout> {&self.fd}
+        }
     };
     ($(#[$outer:meta])*
-    struct $map_type:ident : $type_const:expr) => {
+    struct $map_type:ident < $layout:ty > : $type_const:expr) => {
         #[repr(transparent)]
         $(#[$outer])*
         pub struct $map_type {
-            fd: BpfMapFd<u32, u32, ScalarLayout>,
+            fd: BpfMapFd<u32, u32, $layout>,
         }
         impl $map_type { map_impl!($type_const); }
-        impl Map for $map_type { type Key = u32; type Value = u32; }
-    };
-}
-
-macro_rules! impl_update {
-    ($map_type:ident < $($gen:ident),* > ) => {
-        impl<$($gen,)*> Update for $map_type<$($gen,)*> { impl_update_gen!(); }
-    };
-    ($map_type:ident) => {
-        impl Update for $map_type { impl_update_gen!(); }
+        impl Map for $map_type {
+            type Key = u32;
+            type Value = u32;
+            type Layout = $layout;
+            fn fd(&self) -> &BpfMapFd<u32, u32, $layout> {&self.fd}
+        }
     };
 }
 
@@ -105,67 +141,14 @@ macro_rules! impl_update_gen {
     };
 }
 
-macro_rules! impl_lookup {
-    ($map_type:ident < $value:ident > ) => {
-        impl<$value> Lookup for $map_type<$value> {
-            impl_lookup_gen!();
-        }
-    };
-    ($map_type:ident) => {
-        impl Lookup for $map_type {
-            impl_lookup_gen!();
-        }
-    };
-}
+map_def!(struct CpuMap <ScalarLayout> : BpfMapType::CPUMAP);
+impl Update for CpuMap {}
+impl Lookup for CpuMap {}
 
-macro_rules! impl_lookup_gen {
-    () => {
-        fn lookup(&self, key: &Self::Key) -> Option<Self::Value> {
-            let mut value = maybe_uninit::MaybeUninit::uninit();
-            libbpf::bpf_map_lookup_elem(&self.fd, key, &mut value)
-                .map(|_| unsafe { value.assume_init() })
-        }
-    };
-}
+map_def!(struct Array<T, ScalarLayout>: BpfMapType::ARRAY);
+impl<T> Update for Array<T> {}
+impl<T> Lookup for Array<T> {}
 
-map_def!(struct CpuMap: BpfMapType::CPUMAP);
-impl_update!(CpuMap);
-impl_lookup!(CpuMap);
-
-map_def!(struct Array<T>: BpfMapType::ARRAY);
-impl_update!(Array<T>);
-impl_lookup!(Array<T>);
-
-#[repr(transparent)]
-pub struct PerCpuArray<T> {
-    fd: BpfMapFd<u32, T, PerCpuLayout>,
-}
-
-impl<T> PerCpuArray<T> {
-    map_impl!(BpfMapType::PERCPU_ARRAY);
-}
-
-impl<T> Map for PerCpuArray<T> {
-    type Key = u32;
-    type Value = Vec<PerCpuValue<T>>;
-}
-
-impl_update!(PerCpuArray<T>);
-
-impl<T> Lookup for PerCpuArray<T> {
-    fn lookup(&self, key: &Self::Key) -> Option<Self::Value> {
-        let mut buffer: Vec<MaybeUninit<PerCpuValue<T>>> =
-            LayoutBuffer::<T, PerCpuLayout>::allocate_buffer();
-        unsafe {
-            libbpf::bpf_map_lookup_elem(&self.fd, key, &mut buffer)?;
-            let mut buffer = std::mem::ManuallyDrop::new(buffer);
-            // Sadly there is no efficient and safer way to change our Vec<MaybeUninit>
-            // into a Vec other than this.
-            Some(Vec::from_raw_parts(
-                buffer.as_mut_ptr() as *mut PerCpuValue<T>,
-                buffer.len(),
-                buffer.capacity(),
-            ))
-        }
-    }
-}
+map_def!(struct PerCpuArray<T, PerCpuLayout>: BpfMapType::PERCPU_ARRAY);
+impl<T> Update for PerCpuArray<T> {}
+impl<T> Lookup for PerCpuArray<T> {}
