@@ -5,7 +5,8 @@ use crate::error::{Error, Result};
 use crate::libbpf;
 use crate::libbpf::{BpfMapDef, BpfMapFd, BpfMapInfo, BpfMapType, BpfObject, BpfUpdateElemFlags};
 use crate::map_layout::*;
-
+use duplicate::duplicate;
+use duplicate::duplicate_inline;
 use maybe_uninit::MaybeUninit;
 
 /// This trait is implemented by all the map wrapper types, as
@@ -79,6 +80,61 @@ fn extract_checked_info<K, V, L: MapLayout<V>>(
         ))
     }
 }
+/*
+#[duplicate(
+    [
+        map_type    [ CpuMap ]
+        key         [ u32 ]
+        value       [ u32 ]
+        map_layout  [ ScalarLayout ]
+    ]
+)]
+pub struct map_type {
+    fd: BpfMapFd<key, value, map_layout>,
+}
+*/
+//  [Array<T>]  [u32]  [T]  [ScalarLayout]
+
+
+// #[duplicate(
+//   map_type            key      value    map_layout;     
+//   [ CpuMap ]          [ u32 ]  [ u32 ]  [ ScalarLayout ];
+//   [ Array<T> ]        [ u32 ]  [ T ]    [ ScalarLayout ];
+//   [ PerCpuArray<T> ]  [ u32 ]  [ T ]    [ PerCpuLayout ];
+// )]
+// pub struct map_type {
+//     fd: super::BpfMapFd<key, value, super::map_layout>,
+// }
+
+duplicate_inline!{
+[
+  map_type            generics  key      value    layout            type_const;     
+  [ CpuMap ]          [ ]       [ u32 ]  [ u32 ]  [ ScalarLayout ]  [ ];
+  [ Array ]           [ T ]     [ u32 ]  [ T ]    [ ScalarLayout ]  [ ];
+  [ PerCpuArray ]     [ T ]     [ u32 ]  [ T ]    [ PerCpuLayout ]  [ ];
+]
+    pub struct map_type<generics> {
+        fd: BpfMapFd<key, value, layout>,
+    }
+    impl<generics> Map for map_type<generics> {
+        type Key = key;
+        type Value = value;
+        type Layout = layout;
+        fn fd(&self) -> &BpfMapFd<key, value, layout> {&self.fd}
+    }
+    impl<generics> map_type<generics> {
+       pub fn from_obj(bpf_obj: &BpfObject, map_name: &str) -> Result<Self> {
+            let fd = extract_map_fd(bpf_obj, map_name)?;
+            Ok(Self { fd })
+        }
+        pub fn extract_info(&self) -> Result<BpfMapInfo> {
+            extract_checked_info(&self.fd, $type_const)
+        }
+    }
+}
+
+
+
 
 macro_rules! map_def {
     ($(#[$outer:meta])*
@@ -141,14 +197,14 @@ macro_rules! impl_update_gen {
     };
 }
 
-map_def!(struct CpuMap <ScalarLayout> : BpfMapType::CPUMAP);
-impl Update for CpuMap {}
-impl Lookup for CpuMap {}
+//map_def!(struct CpuMap <ScalarLayout> : BpfMapType::CPUMAP);
+//impl Update for CpuMap {}
+//impl Lookup for CpuMap {}
 
-map_def!(struct Array<T, ScalarLayout>: BpfMapType::ARRAY);
-impl<T> Update for Array<T> {}
-impl<T> Lookup for Array<T> {}
+//map_def!(struct Array<T, ScalarLayout>: BpfMapType::ARRAY);
+//impl<T> Update for Array<T> {}
+//impl<T> Lookup for Array<T> {}
 
-map_def!(struct PerCpuArray<T, PerCpuLayout>: BpfMapType::PERCPU_ARRAY);
-impl<T> Update for PerCpuArray<T> {}
-impl<T> Lookup for PerCpuArray<T> {}
+// map_def!(struct PerCpuArray<T, PerCpuLayout>: BpfMapType::PERCPU_ARRAY);
+// impl<T> Update for PerCpuArray<T> {}
+// impl<T> Lookup for PerCpuArray<T> {}
