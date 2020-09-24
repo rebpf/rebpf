@@ -196,6 +196,75 @@ mod test {
     use std::mem::{align_of, size_of};
 
     #[test]
+    fn percpu_allocate_write() {
+        let buffer = <PerCpuLayout as MapLayout<usize>>::allocate_write();
+        assert_eq!(buffer.len(), PerCpuLayout::nb_cpus());
+    }
+
+    #[test]
+    fn percpu_allocate() {
+        let mut i = 0;
+        let buffer = PerCpuLayout::allocate(|| {
+            let v = i;
+            i += 1;
+            v
+        });
+
+        assert_eq!(buffer.len(), PerCpuLayout::nb_cpus());
+        assert_eq!(i, PerCpuLayout::nb_cpus());
+        assert_eq!(*buffer[0].as_ref(), 0);
+        assert_eq!(
+            *buffer.last().unwrap().as_ref(),
+            PerCpuLayout::nb_cpus() - 1
+        );
+    }
+
+    #[test]
+    fn scalar_transmute() {
+        let src = MaybeUninit::new(42);
+        assert_eq!(42, unsafe { ScalarLayout::transmute(src) });
+    }
+
+    #[test]
+    fn percpu_transmute() {
+        let mut buffer = PerCpuLayout::allocate_write();
+        for i in 0..buffer.len() {
+            std::mem::swap(&mut buffer[i], &mut MaybeUninit::new(PerCpuValue(i)));
+        }
+
+        let buffer = unsafe { PerCpuLayout::transmute(buffer) };
+
+        assert_eq!(buffer.len(), PerCpuLayout::nb_cpus());
+        assert_eq!(*buffer[0].as_ref(), 0);
+        assert_eq!(
+            *buffer.last().unwrap().as_ref(),
+            PerCpuLayout::nb_cpus() - 1
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "size mismatch")]
+    fn percpu_read_too_small_buffer() {
+        let too_small = std::iter::repeat_with(|| PerCpuValue(0u32))
+            .take(*NB_CPUS - 1)
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+
+        let _ = PtrChecked::<u32, PerCpuLayout>::ptr_checked(&too_small);
+    }
+
+    #[test]
+    #[should_panic(expected = "size mismatch")]
+    fn percpu_read_too_big_buffer() {
+        let too_small = std::iter::repeat_with(|| PerCpuValue(0u32))
+            .take(*NB_CPUS + 4)
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+
+        let _ = PtrChecked::<u32, PerCpuLayout>::ptr_checked(&too_small);
+    }
+
+    #[test]
     fn percpu_value_roundtrip() {
         // A standard type
         assert_eq!(42, *PerCpuValue::from(42).as_ref());
@@ -204,6 +273,7 @@ mod test {
         struct NoDerive {
             content: usize,
         };
+
         assert_eq!(
             42,
             PerCpuValue::from(NoDerive { content: 42 }).as_ref().content
