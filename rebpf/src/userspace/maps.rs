@@ -5,7 +5,6 @@ use crate::error::{Error, Result};
 use crate::libbpf;
 use crate::libbpf::{BpfMapDef, BpfMapFd, BpfMapInfo, BpfMapType, BpfObject, BpfUpdateElemFlags};
 use crate::map_layout::*;
-use duplicate::duplicate;
 use duplicate::duplicate_inline;
 use maybe_uninit::MaybeUninit;
 
