@@ -167,7 +167,7 @@ fn run(
     Ok(())
 }
 
-fn main() {
+fn main() -> Result<(), rebpf_error::Error> {
     let matches = App::new("packet_parser")
         .version("1.0")
         .author("Lorenzo Vannucci lorenzo@vannucci.io")
@@ -192,14 +192,11 @@ fn main() {
     let interface_name = matches.value_of("i").unwrap_or(DEFAULT_DEV);
     let unload_program = matches.is_present("U");
     let bpf_program_path = Path::new(DEFAULT_FILENAME);
-    match run(
+    run(
         &bpf_program_path,
         interface_name,
         DEFAULT_PROG_SEC,
         DEFAULT_MAPNAME,
         unload_program,
-    ) {
-        Err(err) => println!("{:?}", err),
-        Ok(_) => {}
-    };
+    )
 }
