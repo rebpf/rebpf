@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/bin/sh
 BPF_PROG_NAME="kern"
 USER_PROG_NAME="user"
 OUT_DIR="ebpf_output"
 LLC_OPTIONS="-march=bpf -filetype=obj"
-LLC=llc
+LLC=$(which llc-11 2>/dev/null || which llc)
 OUT_IR_TEMP=$OUT_DIR"/"$BPF_PROG_NAME"_temp.ll"
 OUT_IR=$OUT_DIR"/"$BPF_PROG_NAME".ll"
 OUT_ELF=$OUT_DIR"/"$BPF_PROG_NAME".o"
